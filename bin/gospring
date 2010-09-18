@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+use Finance::GeniusTrader::Conf;
+Finance::GeniusTrader::Conf::load();
+
+package main;
+use strict;
+use TradeSpring;
+
+use Finance::GeniusTrader::CLI;
+
+my $init = Finance::GeniusTrader::CLI::init;
+my $code = shift or die 'code required';
+my ($calc, $first, $last) = $init->($code);
+
+my $strategy = shift;
+my $lb = TradeSpring::local_broker();
+
+my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb);
+
+for my $i ($first..$last) {
+    TradeSpring::run_trade($daytrade, $i, 0);
+}
+$daytrade->end;

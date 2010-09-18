@@ -1,0 +1,130 @@
+#!/usr/bin/perl -w
+use strict;
+use Finance::GeniusTrader::Conf;
+Finance::GeniusTrader::Conf::load();
+package main;
+use strict;
+
+my $code = shift or die 'code required';
+my $tf = shift or die 'timeframe required';
+my $strategy = shift;
+
+
+use AnyEvent;
+use AnyMQ;
+my $bus = AnyMQ->new_with_traits(traits => ['AMQP'],
+                                 host   => '127.0.0.1',
+                                 port   => 5672,
+                                 user   => 'guest',
+                                 pass   => 'guest',
+                                 vhost  => '/',
+                                 exchange => '',
+                             );
+
+my $cv = AE::cv;
+
+my $agserv = $bus->topic({name => 'agserv', publisher_only => 1});
+my $myself = $bus->topic("agclient-$$");
+
+
+my $agtopic = $bus->topic("ag/$code/$tf");
+warn $agtopic->name;
+my $client = $bus->new_listener($myself, $bus->topic($code), $agtopic);
+
+use Finance::GeniusTrader::Calculator;
+use Finance::GeniusTrader::Prices;
+use TradeSpring;
+my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
+my $calc;
+$|++;
+
+use Log::Log4perl;
+Log::Log4perl::init_and_watch('jfo-log.conf', 60);
+
+my $port = 5019;
+my $cname = shift;
+my $broker = TradeSpring::jfo_broker($cname, $port);
+$client->poll(\&handler);
+
+my $daytrade;
+
+sub handler {
+    my $msg = shift;
+    if ($msg->{type} eq 'history') {
+        my $data = $msg->{data};
+        warn scalar @{$data};
+        warn $data->[0][5];
+        warn $data->[-1][5];
+        my $p = Finance::GeniusTrader::Prices->new;
+        $p->{prices} = $data;
+        $p->set_timeframe($timeframe);
+        $calc = Finance::GeniusTrader::Calculator->new($p);
+
+        $daytrade = load_strategy($strategy, $calc, $broker);
+
+        if (0) { # XXX: recalc
+            for my $i (0..$calc->prices->count-1) {
+                $daytrade->i($i);
+                $daytrade->run();
+            }
+        }
+    }
+    elsif ($msg->{type} eq 'agbar') { # bar
+        my $prices = $msg->{data};
+
+        use Term::ANSIScreen qw(:color :screen);
+        print clline;
+        print (color 'white');
+        print $prices->[$DATE].' = ';
+        print color $prices->[$CLOSE] > $prices->[$OPEN] ? 'red' : 'green';
+        print join('',map { sprintf("%5d", $_) } @{$prices}[0..3]);
+        printf (" V: %6d", $prices->[4]);
+        print color 'reset';
+        print $/;
+
+        $calc->prices->add_prices($prices);
+        $daytrade->i($calc->prices->count-1);
+        $daytrade->run();
+    }
+    elsif ($msg->{price}) { # tick
+        return unless $calc;
+        print clline;
+        print (color 'white');
+        print $msg->{time}.' = ';
+        my $pp = $calc->prices->at($calc->prices->count-1);
+        my $c = $msg->{price}> $pp->[$CLOSE] ? 'red' : 'green';
+        print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
+        print "\r";
+
+        $broker->on_price($msg->{price}, $msg->{volume}, $msg->{time});
+    }
+    else {
+        warn Dumper($msg);use Data::Dumper;
+    }
+}
+
+# XXX: count to be determined by strategy
+$agserv->publish({type => 'history', symbol => $code,
+                  timeframe => $tf, count => 144,
+                  reply => $myself->name});
+
+# XXX: WSJ-like init
+
+use Plack::Builder;
+my $app = builder {
+    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
+}->to_app;
+
+if (__FILE__ eq $0 || $0 =~ m/exe$/) {
+    use Plack::Runner;
+    my $r = Plack::Runner->new( server => 'Twiggy', env => 'deployment' );
+    my @args = @ARGV;
+    push @args, '--port', $port unless grep { m/port/ } @args;
+    $r->parse_options(@args);
+    $r->run($app);
+}
+else {
+    return $app;
+}
+
+$cv->recv;
