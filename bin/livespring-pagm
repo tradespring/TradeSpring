@@ -1,0 +1,150 @@
+#!/usr/bin/perl -w
+use strict;
+use Finance::GeniusTrader::Conf;
+
+Finance::GeniusTrader::Conf::load();
+
+package main;
+use strict;
+use AnyEvent;
+use YAML::Syck qw(LoadFile);
+use Getopt::Long;
+
+my $test_broker;
+GetOptions ("test" => \$test_broker) or die;
+
+my $config = LoadFile(shift) or die;
+
+my $code = shift or die 'code required';
+my $tf = shift or die 'timeframe required';
+my $strategy = shift;
+
+my $amq = $config->{anymq};
+my $bus = $amq->{traits}
+    ? AnyMQ->new_with_traits(%$amq) : AnyMQ->new(%$amq);
+warn $bus->cv->recv;
+
+my $pagm = $bus->topic({name => 'pagmctrl.'.$config->{node}});
+my $myself = $bus->topic("pagmclient-$$");
+my $client = $bus->new_listener($myself);
+
+$pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
+
+$client->poll(\&handler);
+my $cv = AE::cv;
+
+$client->on_error(sub {
+                      warn "ERROR: ".join(',',@_);
+                  });
+
+
+use Finance::GeniusTrader::Calculator;
+use Finance::GeniusTrader::Prices;
+use TradeSpring;
+my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
+my $calc;
+$|++;
+
+use Log::Log4perl;
+Log::Log4perl::init_and_watch('jfo-log.conf', 60);
+
+my $port = 5019;
+my $cname = shift;
+
+
+my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
+                                : TradeSpring::jfo_broker($cname, $port);
+warn "broker is $broker".$/;
+$client->poll(\&handler);
+
+my $daytrade;
+
+#my $w; $w = AnyEvent->timer(interval => 1, cb => sub { warn "hi $client"; $w});
+
+my ($tick_channel, $ag_channel);
+
+sub handler {
+    my $msg = shift;
+    no warnings 'uninitialized';
+
+    if ($msg->{type} eq 'pagm.session') {
+        warn Dumper($msg);
+        $pagm->publish({type => 'pagm.history', code => $code,
+                         timeframe => $tf, count => 144,
+                         reply => $myself->name});
+        $tick_channel = $msg->{tick_channel};
+        $ag_channel = $msg->{ag_channel}.$tf;
+    }
+    elsif ($msg->{type} eq 'history') {
+        my $prices = $msg->{prices};
+        warn scalar @{$prices};
+        warn $prices->[0][5];
+        warn $prices->[-1][5];
+        my $p = Finance::GeniusTrader::Prices->new;
+        $p->{prices} = $prices;
+        $p->set_timeframe($timeframe);
+        $calc = Finance::GeniusTrader::Calculator->new($p);
+
+        local $_; # XXX: something is modifying $_ and cause anymq topic reaper trouble
+        $daytrade = TradeSpring::load_strategy($strategy, $calc, $broker);
+
+        $client->subscribe($bus->topic($tick_channel));
+        $client->subscribe($bus->topic($ag_channel));
+
+        if (0) { # XXX: recalc
+            for my $i (0..$calc->prices->count-1) {
+                $daytrade->i($i);
+                $daytrade->run();
+            }
+        }
+        warn "init $daytrade";
+    }
+    elsif ($msg->{type} eq 'agbar') { # bar
+        next unless $calc;
+        my $prices = $msg->{data};
+
+        use Term::ANSIScreen qw(:color :screen);
+        print clline;
+        print (color 'white');
+        print $prices->[$DATE].' = ';
+        print color $prices->[$CLOSE] > $prices->[$OPEN] ? 'red' : 'green';
+        print join('',map { sprintf("%5d", $_) } @{$prices}[0..3]);
+        printf (" V: %6d", $prices->[4]);
+        print color 'reset';
+        print $/;
+
+        $calc->prices->add_prices($prices);
+        $daytrade->i($calc->prices->count-1);
+        $daytrade->run();
+    }
+    elsif ($msg->{price}) { # tick
+        return unless $calc;
+        print clline;
+        print (color 'white');
+        print $msg->{time}.' = ';
+        my $pp = $calc->prices->at($calc->prices->count-1);
+        my $c = $msg->{price}> $pp->[$CLOSE] ? 'red' : 'green';
+        print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
+        print "\r";
+
+        $broker->on_price($msg->{price}, $msg->{volume}, $msg->{time});
+    }
+    else {
+        warn Dumper($msg);use Data::Dumper;
+    }
+    return 1;
+}
+
+# XXX: WSJ-like init
+if ($c) {
+    require WSJ;
+
+    use Plack::Builder;
+    my $app = builder {
+        #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
+        WSJ->mount_accounts({ $c->account->name => { endpoint => $c->account->endpoint  } })
+    }->to_app;
+
+    WSJ->wsj_loader($app, __FILE__, $port);
+}
+$cv->recv;

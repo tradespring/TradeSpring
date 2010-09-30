@@ -35,12 +35,12 @@ sub jfo_broker {
     my $endpoint = $c->account->endpoint;
     my $address = Net::Address::IP::Local->connected_to(URI->new($endpoint->address)->host);
 
-    my $uri = URI->new($Config->{notify_uri});
+    my $uri = URI->new($Config->{notify_uri}."/".$c->account->name);
     $uri->host($address);
     $uri->port($port);
 
     $endpoint->notify_uri($uri->as_string);
-    TradeSpring::Broker::JFO->new_with_traits
+    my $broker = TradeSpring::Broker::JFO->new_with_traits
         ( endpoint => $endpoint,
           params => {
               type => 'Futures',
@@ -49,6 +49,7 @@ sub jfo_broker {
               year => $near->year, month => $near->month,
           },
           traits => ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA']);
+    return ($broker, $c);
 }
 
 sub load_strategy {
