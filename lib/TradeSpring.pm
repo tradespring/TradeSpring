@@ -133,7 +133,7 @@ sub run_tick_until {
     if (!$current_date || $current_date ne $date->ymd) {
         $buffer = [];
         $current_date = $date->ymd;
-        warn "==> new date: $current_date".$/;
+#        warn "==> new date: $current_date".$/;
         use Finance::TW::TAIFEX;
         my $taifex = Finance::TW::TAIFEX->new($date);
 
@@ -174,7 +174,7 @@ sub run_tick_until {
     $first =~ s/://g;
     $first =~ s/^0//;
 
-    while ($buffer->[0]{time} < $time) {
+    while (scalar @$buffer && $buffer->[0]{time} < $time) {
         my $f = shift @$buffer;
         my ($date, $time) = @{$f}{qw(date time)};
 
