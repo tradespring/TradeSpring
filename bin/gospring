@@ -8,7 +8,8 @@ use TradeSpring;
 
 use Finance::GeniusTrader::CLI;
 
-my $init = Finance::GeniusTrader::CLI::init;
+my $simprices;
+my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices);
 my $code = shift or die 'code required';
 my ($calc, $first, $last) = $init->($code);
 
@@ -18,6 +19,6 @@ my $lb = TradeSpring::local_broker();
 my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb);
 
 for my $i ($first..$last) {
-    TradeSpring::run_trade($daytrade, $i, 0);
+    TradeSpring::run_trade($daytrade, $i, $simprices);
 }
 $daytrade->end;
