@@ -45,7 +45,7 @@ method create ($entry, $stp, $tp) {
              on_ready => sub {
                  my $parent = shift;
                  $self->status('submitted');
-                 warn $parent;
+#                 warn $parent;
                  if ($stp && !$self->stp_id) {
                      my $stp_order = { %$stp,
                                        dir => $self->direction * -1,
@@ -77,6 +77,7 @@ method create ($entry, $stp, $tp) {
 }
 
 method cancel {
+#    warn "==> cancelling ".$self->entry_id;
     $self->broker->cancel_order( $self->entry_id, sub { warn 'cancelled' });
     $self->entry_id(undef);
 }

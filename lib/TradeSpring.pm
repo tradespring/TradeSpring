@@ -129,11 +129,11 @@ my $buffer;
 sub run_tick_until {
     my ($daytrade, $lb, $date, $time) = @_;
 
-    warn "==> run tick until: $time ".$daytrade->date;
+#    warn "==> run tick until: $time ".$daytrade->date;
     if (!$current_date || $current_date ne $date->ymd) {
         $buffer = [];
         $current_date = $date->ymd;
-        warn "==> new date: $current_date";
+        warn "==> new date: $current_date".$/;
         use Finance::TW::TAIFEX;
         my $taifex = Finance::TW::TAIFEX->new($date);
 
@@ -154,6 +154,7 @@ sub run_tick_until {
         $continue = AE::cv;
         my (undef, $first) = split(/ /,$daytrade->date($daytrade->i - 1));
         $first =~ s/://g;
+        $first =~ s/^0//;
         $source->start(
             sub {
                 return if $done;
@@ -165,11 +166,20 @@ sub run_tick_until {
     }
 
     $time =~ s/://g;
-    while (my $f = shift @$buffer) {
-        if ($f->{time} ge $time) {
-            return;
-        }
+    $time =~ s/^0//;
+#    warn "=> pop buffer until $time ".(scalar @$buffer).' / '.$buffer->[0]{time};
+    Carp::confess unless $buffer->[0]{time};
+
+    my (undef, $first) = split(/ /,$daytrade->date($daytrade->i - 1));
+    $first =~ s/://g;
+    $first =~ s/^0//;
+
+    while ($buffer->[0]{time} < $time) {
+        my $f = shift @$buffer;
         my ($date, $time) = @{$f}{qw(date time)};
+
+        next unless $f->{time} >= $first;
+
         $date =~ s/(\d\d\d\d)(\d\d)(\d\d)/$1-$2-$3/;
         $time =~ s/(\d\d?)(\d\d)(\d\d)/$1:$2:$3/;
         $time = '0'.$time unless substr($time, 0, 1) eq '1';
