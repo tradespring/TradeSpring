@@ -64,7 +64,7 @@ method create ($entry, $stp, $tp) {
                      $tp_order->{type} ||= 'lmt';
                      $tp_order->{qty} ||= $entry_order->{qty};
 
-                     $self->stp_id($self->_submit_order('tp', $tp_order));
+                     $self->tp_id($self->_submit_order('tp', $tp_order));
                  }
              },
              on_summary => sub {
