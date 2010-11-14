@@ -11,9 +11,11 @@ use Finance::GeniusTrader::CLI;
 my $simprices;
 my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices);
 my $code = shift or die 'code required';
+my $strategy = shift;
+$strategy->require or die $@;
+
 my ($calc, $first, $last) = $init->($code);
 
-my $strategy = shift;
 my $lb = TradeSpring::local_broker();
 
 my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb);

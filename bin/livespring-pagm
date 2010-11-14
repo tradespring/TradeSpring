@@ -18,6 +18,7 @@ my $config = LoadFile(shift) or die;
 my $code = shift or die 'code required';
 my $tf = shift or die 'timeframe required';
 my $strategy = shift;
+$strategy->require or die $@;
 
 my $amq = $config->{anymq};
 my $bus = $amq->{traits}
