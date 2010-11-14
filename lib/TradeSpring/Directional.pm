@@ -5,13 +5,15 @@ use Method::Signatures::Simple;
 use Number::Extreme;
 use Carp;
 
-with 'TradeSpring::Frame';
+
+requires 'high';
+requires 'low';
 
 has direction => (is => "rw", isa => "Int");
 
 method mk_directional_method($pkg: $name, $long_name, $short_name, $is_function) {
-    my ($long, $short) = map { ref($_) eq 'CODE' ? $_ : $pkg->can($_)
-                                   || die "method $_ not defined for diretional method $name" }
+    my ($long, $short) = map { ref($_) eq 'CODE' ? $_ : $pkg->can($_) }
+#                                   || die "method $_ not defined for diretional method $name of $pkg" }
         ($long_name, $short_name);
     $pkg->meta->add_method
         ($name =>
@@ -20,9 +22,11 @@ method mk_directional_method($pkg: $name, $long_name, $short_name, $is_function)
                      my ($self) = @_;
                      shift if $is_function;
                      if ($self->direction > 0) {
+                         $long ||= $self->can($long_name);
                          goto $long;
                      }
                      if ($self->direction < 0) {
+                         $short ||= $self->can($short_name);
                          goto $short;
                      }
                      croak "better requires direction being set";

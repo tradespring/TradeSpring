@@ -77,7 +77,6 @@ method init($pkg:) {
 method end {}
 
 method on_end_of_day {
-    return unless $self->direction;
     my $pos = $self->open_positions;
     if (@{$pos}) {
         $self->fill_position($pos->[0]{dir}*-1, $self->close, 1);
