@@ -52,6 +52,12 @@ sub jfo_broker {
     return ($broker, $c);
 }
 
+sub load_calc {
+    my ($code, $tf_name) = @_;
+    my $tf = Finance::GeniusTrader::DateTime::name_to_timeframe($tf_name);
+    find_calculator(create_db_object(), $code, $tf, 1);
+}
+
 sub load_strategy {
     my ($name, $calc, $broker) = @_;
     $name->require or die $@;
@@ -75,8 +81,25 @@ my $Strp = DateTime::Format::Strptime->new(
 #    time_zone   => 'Asia/Taipei',
 );
 
+
 sub run_trade {
     my ($strategy, $i, $sim) = @_;
+
+    my @frame_attrs = $strategy->frame_attrs;
+
+    my $date = $strategy->calc->prices->at($i)->[$DATE];
+    for (@frame_attrs) {
+        my $frame = $strategy->$_;
+        if (!$frame->i) {
+            my $fdate = $frame->calc->prices->find_nearest_following_date($date);
+            $frame->i( $frame->calc->prices->date($fdate) );
+        }
+        else {
+            while ($frame->date($frame->i+1) le $date) {
+                $frame->i($frame->i+1);
+            }
+        }
+    }
 
     $strategy->i($i);
     my $lb = $strategy->broker;

@@ -31,9 +31,7 @@ return;
     $self->position($pos);
 }
 
-method debug($message, $i) {
-    warn $self->date($i).' '.$message.$/;
-}
+method frame_attrs { return }
 
 method fill_position($dir, $price, $qty, $submit_i) {
     my $pos = $self->open_positions;
