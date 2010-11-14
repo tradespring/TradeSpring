@@ -65,14 +65,21 @@ sub load_strategy {
 
     my @args = (broker => $broker);
 
-    if ($name->meta->has_attribute('dcalc')) {
+    my $meta = Moose::Meta::Class->create_anon_class(
+        superclasses => [$name],
+        roles        => [qw(MooseX::SimpleConfig MooseX::Getopt)],
+        cache        => 1,
+    );
+
+    if ($meta->find_attribute_by_name('dcalc')) {
         my $dcalc = Storable::dclone($calc);
         $dcalc->create_timeframe($Finance::GeniusTrader::DateTime::DAY);
         $dcalc->set_current_timeframe($Finance::GeniusTrader::DateTime::DAY);
         push @args, (dcalc => $dcalc);
     }
 
-    return $name->new( calc => $calc, @args );
+    return $meta->name->new_with_options( calc => $calc, @args );
+
 }
 
 use DateTime::Format::Strptime;
