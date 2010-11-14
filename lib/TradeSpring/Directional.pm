@@ -50,11 +50,14 @@ method lowest_low {
 
 __PACKAGE__->mk_directional_method('ne_bb'  => 'highest_high', 'lowest_low');
 __PACKAGE__->mk_directional_method('ne_ww'  => 'lowest_low',  'highest_high');
+__PACKAGE__->mk_directional_method('ne_best' => sub { Number::Extreme->max(@_) },
+                                                sub { Number::Extreme->min(@_) }, 'function');
+
 
 use List::Util qw(max min);
 
 __PACKAGE__->mk_directional_method('lu_best'   => 'max',  'min', 'function');
-__PACKAGE__->mk_directional_method('lu_worse'  => 'min',  'max', 'function');
+__PACKAGE__->mk_directional_method('lu_worst'  => 'min',  'max', 'function');
 
 __PACKAGE__->mk_directional_method('bt',
                                    sub { $_[0] > $_[1] },
