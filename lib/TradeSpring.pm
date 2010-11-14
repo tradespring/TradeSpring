@@ -107,15 +107,17 @@ sub sim_prices {
             unshift @p, ($p)
                 if $p < $daytrade->high && $p > $daytrade->low;
         }
-        if ($daytrade->high > $daytrade->close($daytrade->i-1)) {
-            @p = sort { $a <=> $b } @p;
+        push @p, map { $daytrade->$_ } qw(high low);
+        my @prices_down = sort { $b <=> $a } grep { $_ <= $daytrade->open } @p;
+        my @prices_up   = sort { $a <=> $b } grep { $_ > $daytrade->open } @p;
+        if ($daytrade->close > $daytrade->open) {
+            @p = (@prices_down, @prices_up)
         }
         else {
-            @p = sort { $b <=> $a } @p;
+            @p = (@prices_up, @prices_down)
         }
-        push @p, map { $daytrade->$_ } qw(high low close);
         my $d = $daytrade->date;
-        $lb->on_price($_, undef, $d) for ($daytrade->open, @p);
+        $lb->on_price($_, undef, $d) for ($daytrade->open, @p, $daytrade->close);
     }
 }
 
