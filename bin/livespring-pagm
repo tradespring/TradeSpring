@@ -15,10 +15,12 @@ use TradeSpring;
 my $port = 5019;
 my $test_broker;
 my $logconf;
+my $daytrade;
 
-GetOptions ("test"    => \$test_broker,
-            "logconf" => \$logconf,
-            "port"    => \$port,
+GetOptions ("test"     => \$test_broker,
+            "logconf"  => \$logconf,
+            "daytrade" => \$daytrade,
+            "port"     => \$port,
         ) or die;
 
 TradeSpring::init_logging($logconf || 'log.conf');
@@ -64,11 +66,10 @@ Log::Log4perl::init_and_watch('jfo-log.conf', 60);
 my $cname = shift;
 
 my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
-                                : TradeSpring::jfo_broker($cname, $port);
+                                : TradeSpring::jfo_broker($cname, $port,
+                                                          daytrade => $daytrade);
 warn "broker is $broker".$/;
 $client->poll(\&handler);
-
-my $daytrade;
 
 my ($tick_channel, $ag_channel);
 
@@ -77,7 +78,6 @@ sub handler {
     no warnings 'uninitialized';
 
     if ($msg->{type} eq 'pagm.session') {
-        warn Dumper($msg);
         $pagm->publish({type => 'pagm.history', code => $code,
                          timeframe => $tf, count => 144,
                          reply => $myself->name});
@@ -100,13 +100,21 @@ sub handler {
         $client->subscribe($bus->topic($tick_channel));
         $client->subscribe($bus->topic($ag_channel));
 
-        if (0) { # XXX: recalc
-            for my $i (0..$calc->prices->count-1) {
-                $daytrade->i($i);
-                $daytrade->run();
+        if ($daytrade) {
+            # XXX: load existing position?
+            my $start = $calc->prices->count-1;
+            my $dt = DateTime->now(time_zone => 'Asia/Taipei');
+
+            while (($p->at($start-1)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd ) {
+                --$start;
+            }
+            if ($start != $calc->prices->count-1) {
+                for my $i ($start..$calc->prices->count-1) {
+                    $daytrade->i($i);
+                    $daytrade->run();
+                }
             }
         }
-        warn "init $daytrade";
     }
     elsif ($msg->{type} eq 'agbar') { # bar
         next unless $calc;

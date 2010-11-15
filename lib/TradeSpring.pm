@@ -37,6 +37,7 @@ our $Config;
 sub jfo_broker {
     my $cname = shift;
     my $port = shift;
+    my %args = @_;
     $Config ||= JFO::Config->load('config.yml') or die;
     my $contract = Finance::TW::TAIFEX->new->product('TX');
     my $now = DateTime->now;
@@ -50,8 +51,12 @@ sub jfo_broker {
     my $uri = URI->new($Config->{notify_uri}."/".$c->account->name);
     $uri->host($address);
     $uri->port($port);
-
+    $logger->info("JFO endpoint: @{[ $endpoint->address ]}, notification address: $uri");
     $endpoint->notify_uri($uri->as_string);
+
+    my $traits = ['Stop', 'Timed', 'Update', 'Attached', 'OCA'];
+    unshift @$traits, 'Position', unless $args{daytrade};
+
     my $broker = TradeSpring::Broker::JFO->new_with_traits
         ( endpoint => $endpoint,
           params => {
@@ -60,7 +65,8 @@ sub jfo_broker {
               code => $c->code,
               year => $near->year, month => $near->month,
           },
-          traits => ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA']);
+          traits => $traits );
+    $logger->info("JFO broker created: ".join(' ', @$traits));
     return ($broker, $c);
 }
 
