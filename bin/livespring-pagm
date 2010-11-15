@@ -8,10 +8,23 @@ package main;
 use strict;
 use AnyEvent;
 use YAML::Syck qw(LoadFile);
-use Getopt::Long;
+use Getopt::Long qw(:config pass_through);
+use Log::Log4perl;
+use TradeSpring;
 
+my $port = 5019;
 my $test_broker;
-GetOptions ("test" => \$test_broker) or die;
+my $logconf;
+
+GetOptions ("test"    => \$test_broker,
+            "logconf" => \$logconf,
+            "port"    => \$port,
+        ) or die;
+
+TradeSpring::init_logging($logconf || 'log.conf');
+my $logger = Log::Log4perl->get_logger("tradespring");
+
+$logger->info("HI");
 
 my $config = LoadFile(shift) or die;
 
@@ -41,7 +54,6 @@ $client->on_error(sub {
 
 use Finance::GeniusTrader::Calculator;
 use Finance::GeniusTrader::Prices;
-use TradeSpring;
 my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
 my $calc;
 $|++;
@@ -49,9 +61,7 @@ $|++;
 use Log::Log4perl;
 Log::Log4perl::init_and_watch('jfo-log.conf', 60);
 
-my $port = 5019;
 my $cname = shift;
-
 
 my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port);
@@ -59,8 +69,6 @@ warn "broker is $broker".$/;
 $client->poll(\&handler);
 
 my $daytrade;
-
-#my $w; $w = AnyEvent->timer(interval => 1, cb => sub { warn "hi $client"; $w});
 
 my ($tick_channel, $ag_channel);
 

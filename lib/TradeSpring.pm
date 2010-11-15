@@ -21,6 +21,18 @@ use TradeSpring::Broker::JFO;
 use JFO::Config;
 use Net::Address::IP::Local;
 
+our $logger;
+sub init_logging {
+    my $logconf = shift;
+    if (-e $logconf) {
+        Log::Log4perl::init_and_watch($logconf, 60);
+    }
+    else {
+        Log::Log4perl->easy_init();
+    }
+    $logger = Log::Log4perl->get_logger("tradespring");
+}
+
 our $Config;
 sub jfo_broker {
     my $cname = shift;

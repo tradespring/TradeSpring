@@ -9,12 +9,16 @@ use TradeSpring;
 use Finance::GeniusTrader::CLI;
 
 my $simprices;
-my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices);
+my $logconf;
+my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices,
+                                            "logconf" => \$logconf);
+
 my $code = shift or die 'code required';
 my $strategy = shift;
 $strategy->require or die $@;
 
 my ($calc, $first, $last) = $init->($code);
+TradeSpring::init_logging($logconf || 'log.conf');
 
 my $lb = TradeSpring::local_broker();
 
