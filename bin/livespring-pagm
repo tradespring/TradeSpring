@@ -26,8 +26,6 @@ GetOptions ("test"     => \$test_broker,
 TradeSpring::init_logging($logconf || 'log.conf');
 my $logger = Log::Log4perl->get_logger("tradespring");
 
-$logger->info("HI");
-
 my $config = LoadFile(shift) or die;
 
 my $code = shift or die 'code required';
@@ -86,9 +84,7 @@ sub handler {
     }
     elsif ($msg->{type} eq 'history') {
         my $prices = $msg->{prices};
-        warn scalar @{$prices};
-        warn $prices->[0][5];
-        warn $prices->[-1][5];
+        $logger->info("loaded ".(scalar @{$prices})." items for $code/$tf from pagm: $prices->[0][5] - $prices->[-1][5]");
         my $p = Finance::GeniusTrader::Prices->new;
         $p->{prices} = $prices;
         $p->set_timeframe($timeframe);
@@ -147,7 +143,7 @@ sub handler {
         $broker->on_price($msg->{price}, $msg->{volume}, $msg->{time});
     }
     else {
-        warn Dumper($msg);use Data::Dumper;
+        $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
     }
     return 1;
 }
