@@ -42,10 +42,7 @@ my $pagm = $bus->topic({name => 'pagmctrl.'.$config->{node}});
 my $myself = $bus->topic("pagmclient-$$");
 my $client = $bus->new_listener($myself);
 
-$pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
-
-$client->poll(\&handler);
-my $cv = AE::cv;
+my $quit = AE::cv;
 
 $client->on_error(sub {
                       warn "ERROR: ".join(',',@_);
@@ -66,8 +63,25 @@ my $cname = shift;
 my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port,
                                                           daytrade => $daytrade);
-warn "broker is $broker".$/;
-$client->poll(\&handler);
+
+if ($c) {
+    my $w; $w = AnyEvent->timer( after => 30,
+                                 cb => sub {
+                                     $logger->fatal("JFO endpoint not repsonding");
+                                     undef $w;
+                                     $quit->send(-1);
+                                 });
+    $c->account->{_ready} = AE::cv(
+        sub {
+            $client->poll(\&handler);
+            $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
+        });
+}
+else {
+    $client->poll(\&handler);
+    $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
+
+}
 
 my ($tick_channel, $ag_channel);
 
@@ -148,16 +162,55 @@ sub handler {
     return 1;
 }
 
+# XXX: refactor into broker::jfo loader
+use Plack::Builder;
+sub _mount_accounts {
+    my ($class, $accounts) = @_;
+
+    for my $a (keys %$accounts) {
+        my $account = $accounts->{$a};
+
+        my $w; $w = AnyEvent->timer
+            ( after => 5,
+              interval => 60,
+              cb => sub {
+                  $w;
+                  my $endpoint = $account->{endpoint};
+                  $endpoint->jsonrpc_call( 'Ping', { cb => $endpoint->notify_uri.'_' },
+                                           cb => sub { $account->{endpoint_seen} = AnyEvent->now },
+                                           on_fail => sub { $account->{uk} = undef;
+                                                            $logger->warn("endpoint not responding: ".$_[0]);
+                                                        });
+              });
+
+        mount '/notify/'.$a.'_' => sub {
+            my $env = shift;
+            my $req = Plack::Request->new($env);
+            my $v = $req->parameters->mixed;
+            if ($v->{notify} eq 'heartbeat') {
+                $account->{_ready}->send if $account->{_ready};
+                $account->{uk} = $v->{uk};
+            }
+            else {
+                warn "== unknown heartbeat response ".Dumper($v);use Data::Dumper;
+            }
+            return [200, ['Content-Type' => 'text/plain'], ['ok']];
+        };
+
+        mount '/notify/'.$a => TradeSpring::Broker::JFO->psgi_app;
+    }
+    mount '/' => sub { [200, ['Content-Type' => 'text/plain'], ['ok']] };
+};
+
 # XXX: WSJ-like init
 if ($c) {
     require WSJ;
 
-    use Plack::Builder;
     my $app = builder {
         #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
-        WSJ->mount_accounts({ $c->account->name => { endpoint => $c->account->endpoint  } })
+        main->_mount_accounts({ $c->account->name => { endpoint => $c->account->endpoint  } })
     }->to_app;
 
     WSJ->wsj_loader($app, __FILE__, $port);
 }
-$cv->recv;
+exit $quit->recv;
