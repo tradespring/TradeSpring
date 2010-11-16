@@ -30,8 +30,8 @@ my $config = LoadFile(shift) or die;
 
 my $code = shift or die 'code required';
 my $tf = shift or die 'timeframe required';
-my $strategy = shift;
-$strategy->require or die $@;
+my $strategy_name = shift;
+$strategy_name->require or die $@;
 
 my $amq = $config->{anymq};
 my $bus = $amq->{traits}
@@ -105,7 +105,7 @@ sub handler {
         $calc = Finance::GeniusTrader::Calculator->new($p);
 
         local $_; # XXX: something is modifying $_ and cause anymq topic reaper trouble
-        $strategy = TradeSpring::load_strategy($strategy, $calc, $broker);
+        $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
 
         $client->subscribe($bus->topic($tick_channel));
         $client->subscribe($bus->topic($ag_channel));
