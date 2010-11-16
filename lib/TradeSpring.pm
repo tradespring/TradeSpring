@@ -20,7 +20,8 @@ sub local_broker {
 use TradeSpring::Broker::JFO;
 use JFO::Config;
 use Net::Address::IP::Local;
-
+use Log::Log4perl;
+use Log::Log4perl::Level;
 our $logger;
 sub init_logging {
     my $logconf = shift;
@@ -28,7 +29,7 @@ sub init_logging {
         Log::Log4perl::init_and_watch($logconf, 60);
     }
     else {
-        Log::Log4perl->easy_init();
+        Log::Log4perl->easy_init($INFO);
     }
     $logger = Log::Log4perl->get_logger("tradespring");
 }
@@ -179,7 +180,7 @@ my $buffer;
 sub run_tick_until {
     my ($daytrade, $lb, $date, $time) = @_;
 
-    $logger->debug("==> run tick until: $time ".$daytrade->date);
+    $logger->debug("run tick until: $time ".$daytrade->date);
     if (!$current_date || $current_date ne $date->ymd) {
         $buffer = [];
         $current_date = $date->ymd;
