@@ -1,6 +1,7 @@
 package TradeSpring::Position;
 use Moose;
 use Method::Signatures::Simple;
+with 'MooseX::Log::Log4perl';
 
 has broker => (is => "ro", isa => "TradeSpring::Broker");
 
@@ -22,7 +23,9 @@ has tp_id => (is => "rw", isa => "Str");
 method _submit_order($type, $order) {
     $self->broker->register_order(
         $order,
-        on_ready => sub { },
+        on_ready => sub {
+            $self->log->info("order ready: ".join(',',@_));
+        },
         on_match => sub {
             $self->on_exit->($self, $type, @_);
         },
@@ -45,7 +48,6 @@ method create ($entry, $stp, $tp) {
              on_ready => sub {
                  my $parent = shift;
                  $self->status('submitted');
-#                 warn $parent;
                  if ($stp && !$self->stp_id) {
                      my $stp_order = { %$stp,
                                        dir => $self->direction * -1,
@@ -67,18 +69,27 @@ method create ($entry, $stp, $tp) {
                      $self->tp_id($self->_submit_order('tp', $tp_order));
                  }
              },
+             on_error => sub {
+                 # XXX: recover procedure:
+                 # - unexpeted errors
+                 #   - stop strategy new positions
+                 #   - check submitted order
+                 my ($type, $msg) = @_;
+                 $self->log->error("order failed: $type $msg");
+             },
              on_summary => sub {
                  if ($_[0]) {
                      my $o = $self->broker->get_order($self->entry_id);
                      $self->status('entered');
-                     warn $o->{order}{dir}. ' '.$o->{order}{price}.' @ '.$o->{last_fill_time};
+                     $self->log->info("position entered: ".$o->{order}{dir}. ' '.$o->{order}{price}.' @ '.$o->{last_fill_time});
                  }
              }));
 }
 
 method cancel {
-#    warn "==> cancelling ".$self->entry_id;
-    $self->broker->cancel_order( $self->entry_id, sub { warn 'cancelled' });
+    $self->broker->cancel_order( $self->entry_id, sub {
+                                     $self->log->info("order @{[ $self->entry_id]} cancelled: ".join(',', @_) );
+                                 });
     $self->entry_id(undef);
 }
 
