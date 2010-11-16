@@ -14,7 +14,7 @@ sub has_indicator {
     my $which = $mod =~ s#/(\d+)## ? $1-1 : 0;
     my $object = create_standard_object($mod, $arg // ());
     my $object_name = $object->get_name($which);
-    my $cache_tried = 0;
+    my $cache_tried = $ENV{GTINDICATOR_CACHE} ? 0 : 1;
     if ($object->isa('Finance::GeniusTrader::Indicators')) {
         $meta->add_method(
             $name =>

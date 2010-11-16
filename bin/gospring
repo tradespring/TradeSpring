@@ -5,6 +5,7 @@ Finance::GeniusTrader::Conf::load();
 package main;
 use strict;
 use TradeSpring;
+$ENV{GTINDICATOR_CACHE} = 1 unless exists $ENV{GTINDICATOR_CACHE};
 
 use Finance::GeniusTrader::CLI;
 
