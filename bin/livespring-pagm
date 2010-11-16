@@ -146,15 +146,18 @@ sub handler {
     }
     elsif ($msg->{price}) { # tick
         return unless $calc;
+        my $time = $msg->{time};
+
         print clline;
         print (color 'white');
-        print $msg->{time}.' = ';
+        print $time.' = ';
         my $pp = $calc->prices->at($calc->prices->count-1);
         my $c = $msg->{price}> $pp->[$CLOSE] ? 'red' : 'green';
         print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
         print "\r";
 
-        $broker->on_price($msg->{price}, $msg->{volume}, $msg->{time});
+        $time =~ s/(\d\d?)(\d\d)(\d\d)/$1:$2:$3/;
+        $broker->on_price($msg->{price}, $msg->{volume}, $time);
     }
     else {
         $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
