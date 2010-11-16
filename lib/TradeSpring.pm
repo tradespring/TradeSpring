@@ -179,7 +179,7 @@ my $buffer;
 sub run_tick_until {
     my ($daytrade, $lb, $date, $time) = @_;
 
-#    warn "==> run tick until: $time ".$daytrade->date;
+    $logger->debug("==> run tick until: $time ".$daytrade->date);
     if (!$current_date || $current_date ne $date->ymd) {
         $buffer = [];
         $current_date = $date->ymd;

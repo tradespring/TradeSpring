@@ -23,12 +23,6 @@ method new_position($entry, $stp, $tp, %args) {
     $pos->create($entry, $stp, $tp);
 
     $self->pending_positions->{$pos->entry_id} = $pos;
-
-return;
-
-    Carp::confess "position overriden" if $self->position;
-
-    $self->position($pos);
 }
 
 method frame_attrs { return }
