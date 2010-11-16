@@ -55,9 +55,6 @@ my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
 my $calc;
 $|++;
 
-use Log::Log4perl;
-Log::Log4perl::init_and_watch('jfo-log.conf', 60);
-
 my $cname = shift;
 
 my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
