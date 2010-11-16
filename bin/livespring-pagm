@@ -18,9 +18,9 @@ my $logconf;
 my $daytrade;
 
 GetOptions ("test"     => \$test_broker,
-            "logconf"  => \$logconf,
+            "logconf=s"  => \$logconf,
             "daytrade" => \$daytrade,
-            "port"     => \$port,
+            "port=i"     => \$port,
         ) or die;
 
 TradeSpring::init_logging($logconf || 'log.conf');
@@ -61,6 +61,7 @@ my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port,
                                                           daytrade => $daytrade);
 
+my $cv_ready;
 if ($c) {
     my $w; $w = AnyEvent->timer( after => 30,
                                  cb => sub {
@@ -68,8 +69,9 @@ if ($c) {
                                      undef $w;
                                      $quit->send(-1);
                                  });
-    $c->account->{_ready} = AE::cv(
+    $cv_ready = AE::cv(
         sub {
+            undef $w;
             $client->poll(\&handler);
             $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
         });
@@ -81,6 +83,7 @@ else {
 }
 
 my ($tick_channel, $ag_channel);
+my $strategy;
 
 sub handler {
     my $msg = shift;
@@ -102,7 +105,7 @@ sub handler {
         $calc = Finance::GeniusTrader::Calculator->new($p);
 
         local $_; # XXX: something is modifying $_ and cause anymq topic reaper trouble
-        $daytrade = TradeSpring::load_strategy($strategy, $calc, $broker);
+        $strategy = TradeSpring::load_strategy($strategy, $calc, $broker);
 
         $client->subscribe($bus->topic($tick_channel));
         $client->subscribe($bus->topic($ag_channel));
@@ -117,8 +120,8 @@ sub handler {
             }
             if ($start != $calc->prices->count-1) {
                 for my $i ($start..$calc->prices->count-1) {
-                    $daytrade->i($i);
-                    $daytrade->run();
+                    $strategy->i($i);
+                    $strategy->run();
                 }
             }
         }
@@ -138,8 +141,8 @@ sub handler {
         print $/;
 
         $calc->prices->add_prices($prices);
-        $daytrade->i($calc->prices->count-1);
-        $daytrade->run();
+        $strategy->i($calc->prices->count-1);
+        $strategy->run();
     }
     elsif ($msg->{price}) { # tick
         return unless $calc;
@@ -205,7 +208,7 @@ if ($c) {
 
     my $app = builder {
         #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
-        main->_mount_accounts({ $c->account->name => { endpoint => $c->account->endpoint  } })
+        main->_mount_accounts({ $c->account->name => { _ready => $cv_ready, endpoint => $c->account->endpoint  } })
     }->to_app;
 
     WSJ->wsj_loader($app, __FILE__, $port);
