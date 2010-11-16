@@ -33,7 +33,7 @@ return;
 
 method frame_attrs { return }
 
-method fill_position($dir, $price, $qty, $submit_i) {
+method fill_position($dir, $price, $qty, $submit_i, %attrs) {
     my $pos = $self->open_positions;
     my $cp = (sum map { $_->{dir} } @$pos) || 0;
     if ($cp * $dir < 0) { # closing
@@ -61,7 +61,7 @@ method fill_position($dir, $price, $qty, $submit_i) {
     }
     else {
         push @$pos, { dir => $dir, price => $price, i => $self->i, qty => $qty,
-                      submit_i => $submit_i
+                      submit_i => $submit_i, %attrs
                   };
     }
 }
