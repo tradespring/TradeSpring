@@ -146,7 +146,7 @@ sub run_trade {
 use POSIX qw(ceil floor);
 
 sub sim_prices {
-    my ($daytrade, $lb) = @_;
+    my ($strategy, $lb) = @_;
     if (keys %{$lb->orders}) {
         my @p;
         for my $o (grep { $_->{order}{type} eq 'stp' }
@@ -154,19 +154,19 @@ sub sim_prices {
             my $p = $o->{order}{price};
             $p = $o->{order}{dir} > 0 ? ceil($p) : floor($p);
             unshift @p, ($p)
-                if $p < $daytrade->high && $p > $daytrade->low;
+                if $p < $strategy->high && $p > $strategy->low;
         }
-        push @p, map { $daytrade->$_ } qw(high low);
-        my @prices_down = sort { $b <=> $a } grep { $_ <= $daytrade->open } @p;
-        my @prices_up   = sort { $a <=> $b } grep { $_ > $daytrade->open } @p;
-        if ($daytrade->close > $daytrade->open) {
+        push @p, map { $strategy->$_ } qw(high low);
+        my @prices_down = sort { $b <=> $a } grep { $_ <= $strategy->open } @p;
+        my @prices_up   = sort { $a <=> $b } grep { $_ > $strategy->open } @p;
+        if ($strategy->close > $strategy->open) {
             @p = (@prices_down, @prices_up)
         }
         else {
             @p = (@prices_up, @prices_down)
         }
-        my $d = $daytrade->date;
-        $lb->on_price($_, undef, $d) for ($daytrade->open, @p, $daytrade->close);
+        my $d = $strategy->date;
+        $lb->on_price($_, undef, $d) for ($strategy->open, @p, $strategy->close);
     }
 }
 
