@@ -166,7 +166,18 @@ sub sim_prices {
             @p = (@prices_up, @prices_down)
         }
         my $d = $strategy->date;
-        $lb->on_price($_, undef, $d) for ($strategy->open, @p, $strategy->close);
+        @p = ($strategy->open, @p, $strategy->close);
+        my %seen = map { $_ => 1 } @p;
+        while (my $tick = shift @p) {
+            $lb->on_price($tick, undef, $d);
+            for my $o (grep { $_->{order}{type} eq 'stp' }
+                           values %{$lb->orders} ) {
+                my $p = $o->{order}{price};
+                $p = $o->{order}{dir} > 0 ? ceil($p) : floor($p);
+                unshift @p, $p
+                    if $p < $strategy->high && $p > $strategy->low;
+            }
+        }
     }
 }
 
