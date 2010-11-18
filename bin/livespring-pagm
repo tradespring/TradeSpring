@@ -36,7 +36,6 @@ $strategy_name->require or die $@;
 my $amq = $config->{anymq};
 my $bus = $amq->{traits}
     ? AnyMQ->new_with_traits(%$amq) : AnyMQ->new(%$amq);
-warn $bus->cv->recv;
 
 my $pagm = $bus->topic({name => 'pagmctrl.'.$config->{node}});
 my $myself = $bus->topic("pagmclient-$$");
@@ -45,7 +44,7 @@ my $client = $bus->new_listener($myself);
 my $quit = AE::cv;
 
 $client->on_error(sub {
-                      warn "ERROR: ".join(',',@_);
+                      $logger->fatal(join(',',@_));
                   });
 
 
@@ -182,7 +181,7 @@ sub _mount_accounts {
                   $endpoint->jsonrpc_call( 'Ping', { cb => $endpoint->notify_uri.'_' },
                                            cb => sub { $account->{endpoint_seen} = AnyEvent->now },
                                            on_fail => sub { $account->{uk} = undef;
-                                                            $logger->warn("endpoint not responding: ".$_[0]);
+                                                            $logger->error("endpoint not responding: ".$_[0]);
                                                         });
               });
 
@@ -192,10 +191,12 @@ sub _mount_accounts {
             my $v = $req->parameters->mixed;
             if ($v->{notify} eq 'heartbeat') {
                 $account->{_ready}->send if $account->{_ready};
-                $account->{uk} = $v->{uk};
+                unless ( $account->{uk} = $v->{uk} ) {
+                    $logger->error("endpoint not logged in");
+                }
             }
             else {
-                warn "== unknown heartbeat response ".Dumper($v);use Data::Dumper;
+                $logger->warn("unknown heartbeat response ".Dumper($v));use Data::Dumper;
             }
             return [200, ['Content-Type' => 'text/plain'], ['ok']];
         };
