@@ -130,14 +130,16 @@ sub run_trade {
     $strategy->i($i);
     my $lb = $strategy->broker;
 
-    if ($sim) {
-        sim_prices($strategy, $lb);
-    }
-    else {
-        my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
-        my $dt = $Strp->parse_datetime($date);
-        run_tick_until($strategy, $lb, $dt, $time)
-            if (keys %{$lb->orders});
+    if (keys %{$lb->orders}) {
+        if ($sim) {
+            sim_prices($strategy, $lb);
+        }
+        else {
+            my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
+            my $dt = $strategy->can('current_date') ?
+                $strategy->current_date : $Strp->parse_datetime($date);
+            run_tick_until($strategy, $lb, $dt, $time);
+        }
     }
 
     $strategy->run();
@@ -147,35 +149,38 @@ use POSIX qw(ceil floor);
 
 sub sim_prices {
     my ($strategy, $lb) = @_;
-    if (keys %{$lb->orders}) {
-        my @p;
+
+    $logger->debug("simulate prices for bar: ".$strategy->date);
+
+    my @p;
+    for my $o (grep { $_->{order}{type} eq 'stp' }
+                   values %{$lb->orders} ) {
+        my $p = $o->{order}{price};
+        $p = $o->{order}{dir} > 0 ? ceil($p) : floor($p);
+        unshift @p, ($p)
+            if $p < $strategy->high && $p > $strategy->low;
+    }
+    push @p, map { $strategy->$_ } qw(high low);
+    my @prices_down = sort { $b <=> $a } grep { $_ <= $strategy->open } @p;
+    my @prices_up   = sort { $a <=> $b } grep { $_ > $strategy->open } @p;
+    if ($strategy->close > $strategy->open) {
+        @p = (@prices_down, @prices_up)
+    }
+    else {
+        @p = (@prices_up, @prices_down)
+    }
+
+    my $d = $strategy->date;
+    @p = ($strategy->open, @p, $strategy->close);
+    my %seen = map { $_ => 1 } @p;
+    while (my $tick = shift @p) {
+        $lb->on_price($tick, undef, $d);
         for my $o (grep { $_->{order}{type} eq 'stp' }
-                values %{$lb->orders} ) {
+                       values %{$lb->orders} ) {
             my $p = $o->{order}{price};
             $p = $o->{order}{dir} > 0 ? ceil($p) : floor($p);
-            unshift @p, ($p)
-                if $p < $strategy->high && $p > $strategy->low;
-        }
-        push @p, map { $strategy->$_ } qw(high low);
-        my @prices_down = sort { $b <=> $a } grep { $_ <= $strategy->open } @p;
-        my @prices_up   = sort { $a <=> $b } grep { $_ > $strategy->open } @p;
-        if ($strategy->close > $strategy->open) {
-            @p = (@prices_down, @prices_up)
-        }
-        else {
-            @p = (@prices_up, @prices_down)
-        }
-        my $d = $strategy->date;
-        @p = ($strategy->open, @p, $strategy->close);
-        my %seen = map { $_ => 1 } @p;
-        while (my $tick = shift @p) {
-            $lb->on_price($tick, undef, $d);
-            for my $o (grep { $_->{order}{type} eq 'stp' }
-                           values %{$lb->orders} ) {
-                my $p = $o->{order}{price};
-                $p = $o->{order}{dir} > 0 ? ceil($p) : floor($p);
-                unshift @p, $p
-                    if $p < $strategy->high && $p > $strategy->low;
+            if ($p < $strategy->high && $p > $strategy->low && !$seen{$p}++) {
+                unshift @p, $p;
             }
         }
     }
