@@ -82,6 +82,8 @@ method on_end_of_day {
             if exists $self->broker->orders->{$_};
     }
 
+    $self->broker->filled_orders({});
+
     $self->cleanup;
 }
 
