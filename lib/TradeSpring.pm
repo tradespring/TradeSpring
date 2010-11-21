@@ -55,8 +55,7 @@ sub jfo_broker {
     $logger->info("JFO endpoint: @{[ $endpoint->address ]}, notification address: $uri");
     $endpoint->notify_uri($uri->as_string);
 
-    my $traits = ['Stop', 'Timed', 'Update', 'Attached', 'OCA'];
-    unshift @$traits, 'Position', unless $args{daytrade};
+    my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
 
     my $broker = TradeSpring::Broker::JFO->new_with_traits
         ( endpoint => $endpoint,
@@ -66,7 +65,9 @@ sub jfo_broker {
               code => $c->code,
               year => $near->year, month => $near->month,
           },
-          traits => $traits );
+          traits => $traits,
+          $args{daytrade} ? (position_effect_open => '') : (),
+      );
     $logger->info("JFO broker created: ".join(' ', @$traits));
     return ($broker, $c);
 }
