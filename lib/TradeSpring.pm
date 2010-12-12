@@ -79,7 +79,8 @@ sub load_calc {
 }
 
 sub load_strategy {
-    my ($name, $calc, $broker) = @_;
+    my ($name, $calc, $broker, $fh) = @_;
+    $fh ||= \*STDOUT;
     $name->require or die $@;
     $name->init;
 
@@ -98,8 +99,13 @@ sub load_strategy {
         push @args, (dcalc => $dcalc);
     }
 
-    return $meta->name->new_with_options( calc => $calc, @args );
+    print $fh
+        join(",", qw(id date dir open_date close_date open_price close_price profit),
+             sort keys %{$name->attrs}).$/;
 
+    my $strategy = $meta->name->new_with_options( report_fh => $fh, calc => $calc, @args );
+
+    return $strategy;
 }
 
 use DateTime::Format::Strptime;

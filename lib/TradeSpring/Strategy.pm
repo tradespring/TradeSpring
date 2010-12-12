@@ -17,6 +17,8 @@ has _ym_cnt => (is => "rw", isa => "Int", default => sub { 0 });
 
 has pending_positions => (is => "rw", isa => "HashRef", default => sub { {} });
 
+has report_fh => (is => "rw", default => sub { \*STDOUT });
+
 method new_position($entry, $stp, $tp, %args) {
     my $pos = TradeSpring::Position->new(broker => $self->broker, %args);
 
@@ -45,12 +47,13 @@ method fill_position($dir, $price, $qty, $submit_i, %attrs) {
             $self->_last_ym($ym);
         }
 
-        print join(",", $ym.'-'.sprintf('%03d',++$self->{_ym_cnt}), $dt->ymd, $c->{dir},
+        print {$self->report_fh}
+            join(",", $ym.'-'.sprintf('%03d',++$self->{_ym_cnt}), $dt->ymd, $c->{dir},
                    $self->date($c->{i}), $date,
                    $c->{price}, $price,
                    ($price - $c->{price}) * $c->{dir},
 
-                   map { $_->($self, $c) } values %{$self->attrs}
+                   map { $self->attrs->{$_}->($self, $c) } sort keys %{$self->attrs}
                ).$/;
     }
     else {
@@ -61,9 +64,6 @@ method fill_position($dir, $price, $qty, $submit_i, %attrs) {
 }
 
 method init($pkg:) {
-    print join(",", qw(id date dir open_date close_date open_price close_price
-                       profit
-                  ), keys %{$pkg->attrs}).$/;
 }
 
 method end {}
