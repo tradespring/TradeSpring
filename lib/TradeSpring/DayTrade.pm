@@ -6,6 +6,7 @@ requires 'highest_high';
 
 has day_high => (is => "rw");
 has day_low => (is => "rw");
+has dcalc => (is => "ro");
 
 has dstart => (is => "rw", isa => "Int");
 
