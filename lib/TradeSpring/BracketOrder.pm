@@ -29,10 +29,19 @@ method update_stp_price($price, $cb) {
 
 method new_bracket_order ($entry_order, $stp, $tp, %args) {
     my $on_exit = delete $args{on_exit};
+    my $on_entry = delete $args{on_entry};
+
     my $p = TradeSpring::Position->new(
         broker => $self->broker, %args,
+        on_entry => sub {
+            my ($pos, $price, $qty) = @_;
+            $self->fill_position($pos->direction, $price, $qty, $self->i);
+            $on_entry->(@_) if $on_entry;
+        },
         on_exit => sub {
-            $on_exit->(@_);
+            my ($pos, $type, $price, $qty) = @_;
+            $self->fill_position($pos->direction*-1, $price, $qty, $self->i);
+            $on_exit->(@_) if $on_exit;
             $self->clear_position;
         },
         direction => $entry_order->{dir}, # deprecate later
