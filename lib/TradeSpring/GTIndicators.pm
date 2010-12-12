@@ -43,7 +43,16 @@ sub has_indicator {
             $name =>
                 sub {
                     my ($self, $i) = @_;
-                    $object->detect( $self->calc, $i // $self->i);
+                    my $calc = $self->calc;
+                    unless ($cache_tried++) {
+                        use Data::Walk 'walk';
+                        walk sub {
+                            return unless UNIVERSAL::isa($_, 'Finance::GeniusTrader::Indicators');
+                            $_->load_from_cache($calc);
+                        }, $object;
+                    }
+
+                    $object->detect( $calc, $i // $self->i);
                     $self->calc->signals->get( $object_name, $i // $self->i );
                 }
             )
