@@ -4,6 +4,7 @@ Finance::GeniusTrader::Conf::load();
 
 package main;
 use strict;
+use Getopt::Long qw(:config pass_through);
 use TradeSpring;
 $ENV{GTINDICATOR_CACHE} = 1 unless exists $ENV{GTINDICATOR_CACHE};
 
@@ -11,7 +12,9 @@ use Finance::GeniusTrader::CLI;
 
 my $simprices;
 my $logconf;
+my $fitf;
 my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices,
+                                            'fitf' => \$fitf,
                                             "logconf" => \$logconf);
 
 my $code = shift or die 'code required';
@@ -26,6 +29,6 @@ my $lb = TradeSpring::local_broker();
 my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb);
 
 for my $i ($first..$last) {
-    TradeSpring::run_trade($daytrade, $i, $simprices);
+    TradeSpring::run_trade($daytrade, $i, $simprices, $fitf);
 }
 $daytrade->end;

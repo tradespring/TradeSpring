@@ -111,12 +111,17 @@ sub load_strategy {
 use DateTime::Format::Strptime;
 my $Strp = DateTime::Format::Strptime->new(
     pattern     => '%F',
-#    time_zone   => 'Asia/Taipei',
+    time_zone   => 'Asia/Taipei',
+);
+
+my $Strp_time = DateTime::Format::Strptime->new(
+    pattern     => '%F %T',
+    time_zone   => 'Asia/Taipei',
 );
 
 
 sub run_trade {
-    my ($strategy, $i, $sim) = @_;
+    my ($strategy, $i, $sim, $fitf) = @_;
 
     my @frame_attrs = $strategy->frame_attrs;
 
@@ -140,6 +145,12 @@ sub run_trade {
     if (keys %{$lb->orders}) {
         if ($sim) {
             sim_prices($strategy, $lb);
+        }
+        elsif ($fitf) {
+            my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
+            my $dt = $strategy->can('current_date') ?
+                $strategy->current_date : $Strp->parse_datetime($date);
+            run_tick_fitf($strategy, $lb, $dt, $time);
         }
         else {
             my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
@@ -193,7 +204,58 @@ sub sim_prices {
     }
 }
 
+my $fitf;
+sub run_tick_fitf {
+    require Finance::FITF;
+    my ($daytrade, $lb, $date, $time) = @_;
 
+    $logger->info("run tick until: $time ".$daytrade->date);
+    if (!$fitf || $fitf->header->{date} ne $date->ymd('')) {
+        $fitf = Finance::FITF->new_from_file(
+            fitf_store($date)) or die;
+    }
+
+    my $start = $Strp_time->parse_datetime($daytrade->date($daytrade->i-1))->epoch;
+    my $end =   $Strp_time->parse_datetime($daytrade->date)->epoch;
+
+    my $start_b = $fitf->bar_at($start);
+    my $end_b = $fitf->bar_at($end);
+
+    my $date_base = $date->epoch;
+    my $ymd = $date->ymd;
+    my $last_price;
+    my $last_time;
+    my $broker_update;
+    my %prices_seen;
+    $fitf->run_ticks($start_b->{index} + $start_b->{ticks},
+                     $end_b->{index}   + $end_b->{ticks}-1,
+                     sub {
+                         my ($timestamp, $price, $volume) = @_;
+                         if ($last_price && $price == $last_price &&
+                             $last_time && $last_time == $timestamp
+                         ) {
+                             return;
+                         }
+                         if ($broker_update && $broker_update != $lb->{timestamp} && 1) {
+                             %prices_seen = ();
+                             $broker_update = $lb->{timestamp};
+                         }
+#                         return if $prices_seen{$price}++;
+                         my $hms = $timestamp - $date_base;
+                         $hms = sprintf('%02d:%02d:%02d',
+                                        int($hms / 60 / 60),
+                                        int(($hms % 3600)/60),
+                                        ($hms % 60));
+                         $lb->on_price($price, $volume, $ymd.' '.$hms);
+                         $last_price = $price; $last_time = $timestamp;
+                     });
+
+}
+
+sub fitf_store {
+    my $date = shift;
+    return '/Users/clkao/work/trade/XTAF.TX/'.$date->year.'/XTAF.TX-'.$date->ymd.'.fitf';
+}
 
 my $current_date;
 my $continue;
