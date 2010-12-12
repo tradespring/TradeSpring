@@ -19,6 +19,8 @@ has entry_id => (is => "rw", isa => "Maybe[Str]");
 has stp_id => (is => "rw", isa => "Str");
 has tp_id => (is => "rw", isa => "Str");
 
+has position_entered => (is => "rw", isa => "Int", default => sub { 0 });
+has qty => (is => "rw", isa => "Int");
 
 method _submit_order($type, $order) {
     $self->broker->register_order(
@@ -36,14 +38,14 @@ method _submit_order($type, $order) {
 method create ($entry, $stp, $tp) {
 
     my $entry_order = { %$entry, dir => $self->direction };
-
+    $self->qty( $entry_order->{qty} );
     $self->entry_id(
         $self->broker->register_order
             ($entry_order,
              on_match => sub {
                  my ($price, $qty) = @_;
                  my ($stp_order, $exit_order);
-                 $self->on_entry->($self, @_);
+                 $self->{position_entered} += $qty;
              },
              on_ready => sub {
                  my $parent = shift;
@@ -81,6 +83,7 @@ method create ($entry, $stp, $tp) {
                  if ($_[0]) {
                      my $o = $self->broker->get_order($self->entry_id);
                      $self->status('entered');
+                     $self->on_entry->($self, $o->{order}{price}, $_[0]);
                      $self->log->info("position entered: ".$o->{order}{dir}. ' '.$o->{order}{price}.' @ '.$o->{last_fill_time});
                  }
              }));
