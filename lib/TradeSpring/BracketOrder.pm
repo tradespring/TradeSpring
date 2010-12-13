@@ -53,9 +53,7 @@ method new_bracket_order ($entry_order, $stp, $tp, %args) {
 }
 
 method cancel_pending_order {
-    $self->broker->cancel_order( $self->position->entry_id, sub {
-                                     $self->log->info("order @{[ $self->entry_id]} cancelled: ".join(',', @_) );
-                                 });
+    $self->position->cancel;
     $self->clear_position unless $self->position_entered;
 }
 

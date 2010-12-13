@@ -26,7 +26,7 @@ method _submit_order($type, $order) {
     $self->broker->register_order(
         $order,
         on_ready => sub {
-            $self->log->info("order ready: ".join(',',@_));
+            $self->log('order')->info("order ready: ".join(',',@_));
         },
         on_match => sub {
             $self->on_exit->($self, $type, @_);
@@ -84,16 +84,15 @@ method create ($entry, $stp, $tp) {
                      my $o = $self->broker->get_order($self->entry_id);
                      $self->status('entered');
                      $self->on_entry->($self, $o->{order}{price}, $_[0]);
-                     $self->log->info("position entered: ".$o->{order}{dir}. ' '.$o->{order}{price}.' @ '.$o->{last_fill_time});
+                     $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                  }
              }));
 }
 
 method cancel {
     $self->broker->cancel_order( $self->entry_id, sub {
-                                     $self->log->info("order @{[ $self->entry_id]} cancelled: ".join(',', @_) );
+                                     $self->log('order')->info("order @{[ $self->entry_id]} cancelled: ".join(',', @_) );
                                  });
-    $self->entry_id(undef);
 }
 
 __PACKAGE__->meta->make_immutable;

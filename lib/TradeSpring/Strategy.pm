@@ -1,10 +1,13 @@
 package TradeSpring::Strategy;
 use Moose;
+use DateTime;
 use Method::Signatures::Simple;
 use MooseX::ClassAttribute;
 use TradeSpring::Position;
 
 use List::Util qw(sum);
+
+with 'MooseX::Log::Log4perl';
 
 class_has attrs => (is => "rw", isa => "HashRef", default => sub { {} });
 
