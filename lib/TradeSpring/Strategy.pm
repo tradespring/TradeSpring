@@ -20,6 +20,8 @@ has _ym_cnt => (is => "rw", isa => "Int", default => sub { 0 });
 
 has pending_positions => (is => "rw", isa => "HashRef", default => sub { {} });
 
+has report_header => (is => "ro", isa => "Bool");
+
 has report_fh => (is => "rw", default => sub { \*STDOUT });
 
 method new_position($entry, $stp, $tp, %args) {

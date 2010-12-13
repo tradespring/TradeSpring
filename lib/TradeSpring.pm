@@ -99,11 +99,13 @@ sub load_strategy {
         push @args, (dcalc => $dcalc);
     }
 
+    my $strategy = $meta->name->new_with_options( report_fh => $fh, calc => $calc, @args );
+
     print $fh
         join(",", qw(id date dir open_date close_date open_price close_price profit),
-             sort keys %{$name->attrs}).$/;
+             sort keys %{$name->attrs}).$/
+                 if $strategy->report_header;
 
-    my $strategy = $meta->name->new_with_options( report_fh => $fh, calc => $calc, @args );
 
     return $strategy;
 }

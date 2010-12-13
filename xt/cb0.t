@@ -41,6 +41,7 @@ TradeSpring::init_logging('log.conf');
 my $lb = TradeSpring::local_broker();
 
 my $report = File::Temp->new;
+local @ARGV = qw(--report_header);
 my $daytrade = TradeSpring::load_strategy('CB0', $calc, $lb, $report);
 
 for my $i ($first..$last) {
