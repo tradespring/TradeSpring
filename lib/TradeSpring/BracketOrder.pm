@@ -30,12 +30,13 @@ method update_stp_price($price, $cb) {
 method new_bracket_order ($entry_order, $stp, $tp, %args) {
     my $on_exit = delete $args{on_exit};
     my $on_entry = delete $args{on_entry};
-
+    my $entry_annotation = delete $args{entry_annotation} || sub {};
     my $p = TradeSpring::Position->new(
         broker => $self->broker, %args,
         on_entry => sub {
             my ($pos, $price, $qty) = @_;
-            $self->fill_position($pos->direction, $price, $qty, $self->i);
+            $self->fill_position($pos->direction, $price, $qty, $self->i,
+                                 $entry_annotation->());
             $on_entry->(@_) if $on_entry;
         },
         on_exit => sub {
