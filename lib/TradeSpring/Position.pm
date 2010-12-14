@@ -51,8 +51,8 @@ method create ($entry, $stp, $tp) {
                  my $parent = shift;
                  $self->status('submitted');
                  if ($stp && !$self->stp_id) {
+                     $stp->{dir} ||= $self->direction * -1; ### ensure?
                      my $stp_order = { %$stp,
-                                       dir => $self->direction * -1,
                                        attached_to => $parent,
                                        oca_group => $parent };
                      $stp_order->{type} ||= 'stp';
@@ -61,8 +61,8 @@ method create ($entry, $stp, $tp) {
                      $self->stp_id($self->_submit_order('stp', $stp_order));
                  }
                  if ($tp && !$self->tp_id) {
+                     $tp->{dir} ||= $self->direction * -1; ### ensure?
                      my $tp_order = { %$tp,
-                                      dir => $self->direction * -1,
                                       attached_to => $parent,
                                       oca_group => $parent };
                      $tp_order->{type} ||= 'lmt';

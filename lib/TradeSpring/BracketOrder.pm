@@ -8,6 +8,21 @@ before 'cleanup' => method {
     $self->clear_position;
 };
 
+has order_report => (is => "rw", isa => "Str");
+
+has order_report_fh => (
+    is => "rw",
+    lazy_build => 1
+);
+
+method _build_order_report_fh {
+    $self->order_report or return;
+
+    open my $fh, '>', $self->order_report
+        or die "can't open @{[ $self->order_report ]} for write";
+    return $fh;
+}
+
 method pending_order {
     my $p = $self->position or return 0;
 
@@ -27,6 +42,20 @@ method update_stp_price($price, $cb) {
         if $self->bt($price, $stp->{order}{price});
 }
 
+method format_order($order, $price, $qty) {
+    return unless $self->order_report_fh;
+    print {$self->order_report_fh}
+        join(',',
+             $self->date,
+             AnyEvent->now,
+             $order->{dir},
+             $qty,
+             $order->{price} || $self->broker->{last_price},
+             $price,
+             0, 0
+         ).$/;
+}
+
 method new_bracket_order ($entry_order, $stp, $tp, %args) {
     my $on_exit = delete $args{on_exit};
     my $on_entry = delete $args{on_entry};
@@ -35,12 +64,14 @@ method new_bracket_order ($entry_order, $stp, $tp, %args) {
         broker => $self->broker, %args,
         on_entry => sub {
             my ($pos, $price, $qty) = @_;
+            $self->format_order($entry_order, $price, $qty);
             $self->fill_position($pos->direction, $price, $qty, $self->i,
                                  $entry_annotation->());
             $on_entry->(@_) if $on_entry;
         },
         on_exit => sub {
             my ($pos, $type, $price, $qty) = @_;
+            $self->format_order($type eq 'stp' ? $stp : $tp, $price, $qty);
             $self->fill_position($pos->direction*-1, $price, $qty, $self->i);
             $on_exit->(@_) if $on_exit;
             $self->clear_position;
