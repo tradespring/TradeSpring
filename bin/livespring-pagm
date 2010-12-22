@@ -16,11 +16,13 @@ my $port = 5019;
 my $test_broker;
 my $logconf;
 my $daytrade;
+my $localpagm;
 
-GetOptions ("test"     => \$test_broker,
-            "logconf=s"  => \$logconf,
-            "daytrade" => \$daytrade,
-            "port=i"     => \$port,
+GetOptions ("test"      => \$test_broker,
+            "localpagm" => \$localpagm,
+            "logconf=s" => \$logconf,
+            "daytrade"  => \$daytrade,
+            "port=i"    => \$port,
         ) or die;
 
 TradeSpring::init_logging($logconf || 'log.conf');
@@ -47,6 +49,21 @@ $client->on_error(sub {
                       $logger->fatal(join(',',@_));
                   });
 
+my $server;
+
+if ($localpagm) {
+    require PAGM;
+    my $cfg = $config->{instruments}{$code} or die;
+
+    $server = PAGM->new( bus => $bus,
+                         code => $code,
+                         tf => $cfg->{tf} || [],
+                         db_class => $cfg->{db_class},
+                         db_args  => $cfg->{db_args},
+                         session => $cfg->{session},
+                         tz => $cfg->{tz},
+                         node_id => $config->{node} );
+}
 
 $|++;
 
