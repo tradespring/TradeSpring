@@ -101,7 +101,7 @@ sub load_strategy {
 
     my $strategy = $meta->name->new_with_options( report_fh => $fh, calc => $calc, @args );
 
-    print $fh
+    syswrite $fh,
         join(",", qw(id date dir open_date close_date open_price close_price profit),
              sort keys %{$name->attrs}).$/
                  if $strategy->report_header;

@@ -52,7 +52,7 @@ method fill_position($dir, $price, $qty, $submit_i, %attrs) {
             $self->_last_ym($ym);
         }
 
-        print {$self->report_fh}
+        syswrite $self->report_fh,
             join(",", $ym.'-'.sprintf('%03d',++$self->{_ym_cnt}), $dt->ymd, $c->{dir},
                    $self->date($c->{i}), $date,
                    $c->{price}, $price,
