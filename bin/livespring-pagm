@@ -73,29 +73,23 @@ my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port,
                                                           daytrade => $daytrade);
 
-my $cv_ready;
 my $handler = TradeSpring::live_handler($pagm, $client, $myself, $code, $tf,
                                         $logger, $strategy_name, $broker, $daytrade);
 
-if ($c) {
-    my $w; $w = AnyEvent->timer( after => 30,
-                                 cb => sub {
-                                     $logger->fatal("JFO endpoint not repsonding");
-                                     undef $w;
-                                     $quit->send(-1);
-                                 });
-    $cv_ready = AE::cv(
-        sub {
-            undef $w;
-            $client->poll($handler);
-            $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
-        });
-}
-else {
-    $client->poll($handler);
-    $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
+my $w; $w = AnyEvent->timer( after => 30,
+                             cb => sub {
+                                 $logger->fatal("broker init timeout");
+                                 undef $w;
+                                 $quit->send(-1);
+                             });
+my $cv_ready = AE::cv(
+    sub {
+        undef $w;
+        $client->poll($handler);
+        $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
+    });
 
-}
+$cv_ready->send(1) unless $c;
 
 # XXX: refactor into broker::jfo loader
 use Plack::Builder;
