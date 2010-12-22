@@ -18,7 +18,7 @@ has order_report_fh => (
 method _build_order_report_fh {
     $self->order_report or return;
 
-    open my $fh, '>', $self->order_report
+    open my $fh, '>>', $self->order_report
         or die "can't open @{[ $self->order_report ]} for write";
     return $fh;
 }
@@ -44,7 +44,7 @@ method update_stp_price($price, $cb) {
 
 method format_order($order, $price, $qty) {
     return unless $self->order_report_fh;
-    print {$self->order_report_fh}
+    syswrite $self->order_report_fh,
         join(',',
              $self->date,
              AnyEvent->now,
