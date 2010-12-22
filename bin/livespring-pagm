@@ -48,10 +48,6 @@ $client->on_error(sub {
                   });
 
 
-use Finance::GeniusTrader::Calculator;
-use Finance::GeniusTrader::Prices;
-my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
-my $calc;
 $|++;
 
 my $cname = shift;
@@ -61,6 +57,9 @@ my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
                                                           daytrade => $daytrade);
 
 my $cv_ready;
+my $handler = TradeSpring::live_handler($pagm, $client, $myself, $code, $tf,
+                                        $logger, $strategy_name, $broker, $daytrade);
+
 if ($c) {
     my $w; $w = AnyEvent->timer( after => 30,
                                  cb => sub {
@@ -71,98 +70,14 @@ if ($c) {
     $cv_ready = AE::cv(
         sub {
             undef $w;
-            $client->poll(\&handler);
+            $client->poll($handler);
             $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
         });
 }
 else {
-    $client->poll(\&handler);
+    $client->poll($handler);
     $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
 
-}
-
-my ($tick_channel, $ag_channel);
-my $strategy;
-
-sub handler {
-    my $msg = shift;
-    no warnings 'uninitialized';
-
-    if ($msg->{type} eq 'pagm.session') {
-        $pagm->publish({type => 'pagm.history', code => $code,
-                         timeframe => $tf, count => 144,
-                         reply => $myself->name});
-        $tick_channel = $msg->{tick_channel};
-        $ag_channel = $msg->{ag_channel}.$tf;
-    }
-    elsif ($msg->{type} eq 'history') {
-        my $prices = $msg->{prices};
-        $logger->info("loaded ".(scalar @{$prices})." items for $code/$tf from pagm: $prices->[0][5] - $prices->[-1][5]");
-        my $p = Finance::GeniusTrader::Prices->new;
-        $p->{prices} = $prices;
-        $p->set_timeframe($timeframe);
-        $calc = Finance::GeniusTrader::Calculator->new($p);
-
-        local $_; # XXX: something is modifying $_ and cause anymq topic reaper trouble
-        $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
-
-        $client->subscribe($bus->topic($tick_channel));
-        $client->subscribe($bus->topic($ag_channel));
-
-        if ($daytrade) {
-            # XXX: load existing position?
-            my $start = $calc->prices->count-1;
-            my $dt = DateTime->now(time_zone => 'Asia/Taipei');
-
-            while (($p->at($start-1)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd ) {
-                --$start;
-            }
-            if ($start != $calc->prices->count-1) {
-                for my $i ($start..$calc->prices->count-1) {
-                    $strategy->i($i);
-                    $strategy->run();
-                }
-            }
-        }
-    }
-    elsif ($msg->{type} eq 'agbar') { # bar
-        next unless $calc;
-        my $prices = $msg->{data};
-
-        use Term::ANSIScreen qw(:color :screen);
-        print clline;
-        print (color 'white');
-        print $prices->[$DATE].' = ';
-        print color $prices->[$CLOSE] > $prices->[$OPEN] ? 'red' : 'green';
-        print join('',map { sprintf("%5d", $_) } @{$prices}[0..3]);
-        printf (" V: %6d", $prices->[4]);
-        print color 'reset';
-        print $/;
-
-        $calc->prices->add_prices($prices);
-        $strategy->i($calc->prices->count-1);
-        $strategy->run();
-    }
-    elsif ($msg->{price}) { # tick
-        return unless $calc;
-        my $time = $msg->{time};
-
-        print clline;
-        print (color 'white');
-        print $time.' = ';
-        my $pp = $calc->prices->at($calc->prices->count-1);
-        my $c = $msg->{price}> $pp->[$CLOSE] ? 'red' : 'green';
-        print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
-        print "\r";
-
-        $time =~ s/(\d\d?)(\d\d)(\d\d)/$1:$2:$3/;
-        $time = '0'.$time unless substr($time, 0, 1) eq '1';
-        $broker->on_price($msg->{price}, $msg->{volume}, $time);
-    }
-    else {
-        $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
-    }
-    return 1;
 }
 
 # XXX: refactor into broker::jfo loader
