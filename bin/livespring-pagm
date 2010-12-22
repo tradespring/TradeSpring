@@ -140,14 +140,13 @@ sub _mount_accounts {
 };
 
 # XXX: WSJ-like init
-if ($c) {
-    require WSJ;
-
+if ($broker->can('app_loader')) {
     my $app = builder {
         #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
         main->_mount_accounts({ $c->account->name => { _ready => $cv_ready, endpoint => $c->account->endpoint  } })
     }->to_app;
 
-    WSJ->wsj_loader($app, __FILE__, $port);
+    $broker->app_loader($app, __PACKAGE__, $port);
 }
+
 exit $quit->recv;
