@@ -140,7 +140,7 @@ if ($broker->can('app_loader')) {
         main->_mount_accounts({ $c->account->name => { _ready => $cv_ready, endpoint => $c->account->endpoint  } })
     }->to_app;
 
-    $broker->app_loader($app, __PACKAGE__, $port);
+    $broker->app_loader($app, __FILE__, $port);
 }
 
 exit $quit->recv;
