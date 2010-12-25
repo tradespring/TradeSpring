@@ -20,18 +20,27 @@ has stp_id => (is => "rw", isa => "Str");
 has tp_id => (is => "rw", isa => "Str");
 
 has position_entered => (is => "rw", isa => "Int", default => sub { 0 });
+has position_exited  => (is => "rw", isa => "Int", default => sub { 0 });
 has qty => (is => "rw", isa => "Int");
 
-method _submit_order($type, $order) {
-    $self->broker->register_order(
+method _submit_exit_order($type, $order) {
+    my $id;
+    $id = $self->broker->register_order(
         $order,
         on_ready => sub {
             $self->log('order')->info("order ready: ".join(',',@_));
         },
         on_match => sub {
-            $self->on_exit->($self, $type, @_);
+            my ($price, $qty) = @_;
+            $self->{position_exited} += $qty;
         },
         on_summary => sub {
+            # XXX: consolidate tp/stp orders's summary for actual on_exit price
+            my $o = $self->broker->get_order($id);
+            $self->status('exited');
+            if ($_[0]) {
+                $self->on_exit->($self, $type, $o->{order}{price}, $_[0]);
+            }
         });
 }
 
@@ -58,7 +67,7 @@ method create ($entry, $stp, $tp) {
                      $stp_order->{type} ||= 'stp';
                      $stp_order->{qty} ||= $entry_order->{qty};
 
-                     $self->stp_id($self->_submit_order('stp', $stp_order));
+                     $self->stp_id($self->_submit_exit_order('stp', $stp_order));
                  }
                  if ($tp && !$self->tp_id) {
                      $tp->{dir} ||= $self->direction * -1; ### ensure?
@@ -68,7 +77,7 @@ method create ($entry, $stp, $tp) {
                      $tp_order->{type} ||= 'lmt';
                      $tp_order->{qty} ||= $entry_order->{qty};
 
-                     $self->tp_id($self->_submit_order('tp', $tp_order));
+                     $self->tp_id($self->_submit_exit_order('tp', $tp_order));
                  }
              },
              on_error => sub {
