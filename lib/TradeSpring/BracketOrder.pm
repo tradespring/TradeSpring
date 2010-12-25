@@ -47,12 +47,13 @@ method format_order($order, $price, $qty) {
     syswrite $self->order_report_fh,
         join(',',
              $self->date,
-             AnyEvent->now,
              $order->{dir},
              $qty,
              $order->{price} || $self->broker->{last_price},
              $price,
-             0, 0
+             0, # triggering time
+             0, # submission time
+             AnyEvent->now, # report time
          ).$/;
 }
 
