@@ -72,7 +72,8 @@ method new_bracket_order ($entry_order, $stp, $tp, %args) {
         },
         on_exit => sub {
             my ($pos, $type, $price, $qty) = @_;
-            $self->format_order($type eq 'stp' ? $stp : $tp, $price, $qty);
+            my $o = $self->broker->get_order( $type eq 'stp' ? $pos->stp_id : $pos->tp_id );
+            $self->format_order($o->{order}, $price, $qty);
             $self->fill_position($pos->direction*-1, $price, $qty, $self->i);
             $on_exit->(@_) if $on_exit;
             $self->clear_position;
