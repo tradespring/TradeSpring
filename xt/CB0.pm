@@ -53,7 +53,7 @@ method mk_order($dir) {
         { dir => $dir,
           type => 'stp',
           price => $bb->current_value,
-          qty => 1 },
+          qty => $self->position_qty },
         { price => $bb->current_value * ( 1 - 0.01 * $dir) },
         undef,
         on_entry => sub {

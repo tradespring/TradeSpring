@@ -24,6 +24,8 @@ has report_header => (is => "ro", isa => "Bool");
 
 has report_fh => (is => "rw", default => sub { \*STDOUT });
 
+has position_qty => (is => "ro", isa => "Int", default => sub { 1 });
+
 method new_position($entry, $stp, $tp, %args) {
     my $pos = TradeSpring::Position->new(broker => $self->broker, %args);
 
