@@ -40,6 +40,7 @@ method _submit_exit_order($type, $order) {
             $self->status('exited');
             if ($_[0]) {
                 $self->on_exit->($self, $type, $o->{order}{price}, $_[0]);
+                $self->log->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
             }
         });
 }
