@@ -18,8 +18,10 @@ has dframe => (
 
 has current_date => (is => "rw", isa => "DateTime");
 
+has dframe_class => (is => "ro", isa => "Str", default => sub { 'TradeSpring::Frame' });
+
 method _build_dframe {
-    TradeSpring::Frame->new( calc => $self->dcalc );
+    $self->dframe_class->new( calc => $self->dcalc );
 }
 
 before run => method {
