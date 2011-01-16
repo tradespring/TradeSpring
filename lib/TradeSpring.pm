@@ -246,12 +246,7 @@ sub run_tick_fitf {
                              $broker_update = $lb->{timestamp};
                          }
 #                         return if $prices_seen{$price}++;
-                         my $hms = $timestamp - $date_base;
-                         $hms = sprintf('%02d:%02d:%02d',
-                                        int($hms / 60 / 60),
-                                        int(($hms % 3600)/60),
-                                        ($hms % 60));
-                         $lb->on_price($price, $volume, $ymd.' '.$hms);
+                         $lb->on_price($price, $volume, $fitf->format_timestamp($timestamp));
                          $last_price = $price; $last_time = $timestamp;
                      });
 
