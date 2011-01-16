@@ -36,7 +36,9 @@ before run => method {
             $self->current_date(DateTime->new(year => $y, month => $m, day => $d));
         }
     }
+};
 
+after run => method {
     if (defined $self->day_high) {
         $self->day_high->test($self->i);
         $self->day_low->test($self->i);

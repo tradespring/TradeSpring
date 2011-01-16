@@ -5,6 +5,7 @@ use Moose;
 use Method::Signatures::Simple;
 extends 'TradeSpring::Frame', 'TradeSpring::Strategy';
 use TradeSpring::Position;
+use List::Util qw(max min);
 
 method run {
     return unless $self->dframe->i;
@@ -44,8 +45,8 @@ method mk_order($dir) {
     if ($self->hour <= 900 || $self->hour >= 1320) {
         return;
     }
-    if ( $self->day_high->current_value > $self->dframe->close * 1.05 ||
-         $self->day_low->current_value  < $self->dframe->close * 0.95 ) {
+    if ( max($self->day_high->current_value, $self->high) > $self->dframe->close * 1.05 ||
+         min($self->day_low->current_value , $self->low ) < $self->dframe->close * 0.95 ) {
         return;
     }
 
