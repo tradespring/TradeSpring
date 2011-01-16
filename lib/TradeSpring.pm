@@ -146,6 +146,12 @@ sub run_trade {
 
     if (keys %{$lb->orders}) {
         if ($sim) {
+            # XXX: work out timed order
+            return unless
+                grep { $_->{order}{price} <= $strategy->high ||
+                       $_->{order}{price} >= $strategy->low }
+                    values %{$lb->orders};
+
             sim_prices($strategy, $lb);
         }
         elsif ($fitf) {
