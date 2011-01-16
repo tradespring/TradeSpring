@@ -3,6 +3,7 @@ use Moose;
 
 use Finance::GeniusTrader::Prices;
 use Method::Signatures::Simple;
+use Number::Extreme;
 
 method debug($message, $i) {
     warn $self->date($i).' '.$message.$/;
@@ -53,5 +54,16 @@ method date {
 method volume {
     $self->prices(@_)->[$VOLUME]
 }
+
+method highest_high {
+    my $p = $self->calc->prices->{prices};
+    Number::Extreme->max(sub { $p->[$_][$HIGH] });
+}
+
+method lowest_low {
+    my $p = $self->calc->prices->{prices};
+    Number::Extreme->min(sub { $p->[$_][$LOW] });
+}
+
 
 1;

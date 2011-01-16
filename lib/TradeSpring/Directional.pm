@@ -38,16 +38,6 @@ method mk_directional_method($pkg: $name, $long_name, $short_name, $is_function)
 __PACKAGE__->mk_directional_method('better' => 'high', 'low');
 __PACKAGE__->mk_directional_method('worse'  => 'low',  'high');
 
-method highest_high {
-    my $p = $self->calc->prices->{prices};
-    Number::Extreme->max(sub { $p->[$_][$HIGH] });
-}
-
-method lowest_low {
-    my $p = $self->calc->prices->{prices};
-    Number::Extreme->min(sub { $p->[$_][$LOW] });
-}
-
 __PACKAGE__->mk_directional_method('ne_bb'  => 'highest_high', 'lowest_low');
 __PACKAGE__->mk_directional_method('ne_ww'  => 'lowest_low',  'highest_high');
 __PACKAGE__->mk_directional_method('ne_best' => sub { Number::Extreme->max(@_) },
