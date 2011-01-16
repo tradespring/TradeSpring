@@ -16,16 +16,22 @@ has on_exit => (is => "rw", isa => "CodeRef");
 has direction => (is => "ro", isa => "Int");
 
 has entry_id => (is => "rw", isa => "Maybe[Str]");
-has stp_id => (is => "rw", isa => "Str");
-has tp_id => (is => "rw", isa => "Str");
+has exit_id_map => (is => "rw", isa => "HashRef", default => sub { {} });
 
 has position_entered => (is => "rw", isa => "Int", default => sub { 0 });
 has position_exited  => (is => "rw", isa => "Int", default => sub { 0 });
 has qty => (is => "rw", isa => "Int");
 
+# compat
+method stp_id { $self->exit_id_map->{stp} }
+method tp_id { $self->exit_id_map->{tp} }
+
 method _submit_exit_order($type, $order) {
+    $order->{attached_to} = $self->entry_id
+        if !$self->position_entered;
+    $order->{oca_group} = $self->entry_id;
     my $id;
-    $id = $self->broker->register_order(
+    $id = $self->exit_id_map->{$type} = $self->broker->register_order(
         $order,
         on_ready => sub {
             $self->log('order')->info("order ready: ".join(',',@_));
@@ -43,6 +49,8 @@ method _submit_exit_order($type, $order) {
                 $self->log->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
             }
         });
+
+    return $id;
 }
 
 method create ($entry, $stp, $tp) {
@@ -62,23 +70,19 @@ method create ($entry, $stp, $tp) {
                  $self->status('submitted');
                  if ($stp && !$self->stp_id) {
                      $stp->{dir} ||= $self->direction * -1; ### ensure?
-                     my $stp_order = { %$stp,
-                                       attached_to => $parent,
-                                       oca_group => $parent };
+                     my $stp_order = { %$stp };
                      $stp_order->{type} ||= 'stp';
                      $stp_order->{qty} ||= $entry_order->{qty};
 
-                     $self->stp_id($self->_submit_exit_order('stp', $stp_order));
+                     $self->_submit_exit_order('stp', $stp_order);
                  }
                  if ($tp && !$self->tp_id) {
                      $tp->{dir} ||= $self->direction * -1; ### ensure?
-                     my $tp_order = { %$tp,
-                                      attached_to => $parent,
-                                      oca_group => $parent };
+                     my $tp_order = { %$tp };
                      $tp_order->{type} ||= 'lmt';
                      $tp_order->{qty} ||= $entry_order->{qty};
 
-                     $self->tp_id($self->_submit_exit_order('tp', $tp_order));
+                     $self->_submit_exit_order('tp', $tp_order);
                  }
              },
              on_error => sub {
