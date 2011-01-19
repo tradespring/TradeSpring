@@ -243,6 +243,7 @@ sub run_tick_fitf {
     my $ymd = $date->ymd;
     my $last_price;
     my $last_time;
+    my $last_formatted_time;
     my $broker_update;
     my %prices_seen;
     $fitf->run_ticks($start_b->{index} + $start_b->{ticks},
@@ -259,7 +260,9 @@ sub run_tick_fitf {
                              $broker_update = $lb->{timestamp};
                          }
 #                         return if $prices_seen{$price}++;
-                         $lb->on_price($price, $volume, $fitf->format_timestamp($timestamp));
+                         $last_formatted_time = $fitf->format_timestamp($timestamp)
+                             if !$last_time ||$last_time != $timestamp;
+                         $lb->on_price($price, $volume, $last_formatted_time);
                          $last_price = $price; $last_time = $timestamp;
                      });
 
