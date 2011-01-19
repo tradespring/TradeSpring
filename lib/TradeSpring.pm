@@ -142,20 +142,35 @@ sub run_trade {
     }
 
     $strategy->i($i);
+    run_prices($strategy, $date, $i, $sim, $fitf);
+    $strategy->run();
+}
+
+use List::Util qw(min);
+
+sub run_prices {
+    my ($strategy, $datetime, $i, $sim, $fitf) = @_;
+
+    return unless $strategy->can('broker');
     my $lb = $strategy->broker;
 
     if (keys %{$lb->orders}) {
-        if ($sim) {
-            # XXX: work out timed order
-            return unless
-                grep { $_->{order}{price} <= $strategy->high ||
-                       $_->{order}{price} >= $strategy->low }
+        my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
+
+        return unless
+            grep { ($_->{order}{timed} && $time ge $_->{order}{timed}) ||
+                       ($_->{order}{price} &&
+                        $_->{order}{price} <= $strategy->high &&
+                        $_->{order}{price} >= $strategy->low) ||
+                       ($_->{order}{type} eq 'stp' &&
+                        $_->{order}{dir} * ( $_->{order}{dir} > 0 ? $strategy->high : $strategy->low) >=
+                        $_->{order}{price} * $_->{order}{dir}) }
                     values %{$lb->orders};
 
+        if ($sim) {
             sim_prices($strategy, $lb);
         }
         elsif ($fitf) {
-            my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
             my $dt = $strategy->can('current_date') ?
                 $strategy->current_date : $Strp->parse_datetime($date);
             run_tick_fitf($strategy, $lb, $dt, $time);
@@ -164,8 +179,6 @@ sub run_trade {
             warn "not sure what to do";
         }
     }
-
-    $strategy->run();
 }
 
 use POSIX qw(ceil floor);
