@@ -159,6 +159,7 @@ sub run_prices {
 
         return unless
             grep { ($_->{order}{timed} && $time ge $_->{order}{timed}) ||
+                       ($_->{order}{type} eq 'mkt') ||
                        ($_->{order}{price} &&
                         $_->{order}{price} <= $strategy->high &&
                         $_->{order}{price} >= $strategy->low) ||
