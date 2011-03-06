@@ -78,7 +78,7 @@ method end {}
 method on_end_of_day {
     my $pos = $self->open_positions;
     if (@{$pos}) {
-        $self->fill_position($pos->[0]{dir}*-1, $self->close, 1);
+        $self->fill_position($pos->[0]{dir}*-1, $self->close, $pos->[0]{qty}, $self->i, exit_type => 'eod');
         warn "===ERROR: unclosed position after closing"
             if @$pos;
     }
