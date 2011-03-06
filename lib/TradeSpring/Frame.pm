@@ -9,22 +9,28 @@ method debug($message, $i) {
     warn $self->date($i).' '.$message.$/;
 }
 
-has i => (is => "rw", isa => "Int");
+has i => (is => "rw", isa => "Int", trigger => \&_set_hour);
 
 has calc => (is => "ro", isa => "Finance::GeniusTrader::Calculator",
              required => 1);
 
 has day => (is => "ro", isa => "DateTime");
 
-method hour {
-    my ($hh, $mm) = $self->date(@_) =~ m/ (\d\d):(\d\d)/;
-    return $hh*100+$mm;
-}
+has hour => (is => "rw");
+has is_dstart => (is => "rw", default => sub { 1 });
 
-method is_dstart {
-    my $i = shift // $self->i;
-    return 1 if $i == 0;
-    $self->hour($i) < $self->hour($i-1);
+method _set_hour($i) {
+    my ($hh, $mm) = $self->date($i) =~ m/ (\d\d):(\d\d)/ or return;
+    my $hour = $hh*100+$mm;
+    my $old = $self->hour;
+    $self->hour($hour);
+
+    if (!$old || $hour < $old ) {
+        $self->is_dstart(1)
+    }
+    else {
+        $self->is_dstart(0);
+    }
 }
 
 method prices {
