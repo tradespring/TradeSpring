@@ -43,6 +43,9 @@ __PACKAGE__->mk_directional_method('ne_ww'  => 'lowest_low',  'highest_high');
 __PACKAGE__->mk_directional_method('ne_best' => sub { Number::Extreme->max(@_) },
                                                 sub { Number::Extreme->min(@_) }, 'function');
 
+__PACKAGE__->mk_directional_method('ne_worst' => sub { Number::Extreme->min(@_) },
+                                                 sub { Number::Extreme->max(@_) }, 'function');
+
 
 use List::Util qw(max min);
 
