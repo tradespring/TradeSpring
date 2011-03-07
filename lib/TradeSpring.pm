@@ -5,6 +5,7 @@ use 5.008_001;
 our $VERSION = '0.01';
 use Finance::GeniusTrader::Prices;
 use UNIVERSAL::require;
+use Try::Tiny;
 use Finance::GeniusTrader::Eval;
 use Finance::GeniusTrader::Tools qw(:conf :timeframe);
 use Finance::GeniusTrader::DateTime;
@@ -81,7 +82,10 @@ sub load_calc {
 sub load_strategy {
     my ($name, $calc, $broker, $fh) = @_;
     $fh ||= \*STDOUT;
-    $name->require or die $@;
+    try { eval $name->meta }
+    catch {
+        $name->require or die $@;
+    };
     $name->init;
 
     my @args = (broker => $broker);
