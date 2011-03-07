@@ -288,7 +288,7 @@ sub live_handler {
         no warnings 'uninitialized';
         if ($msg->{type} eq 'pagm.session') {
             $pagm->publish({type => 'pagm.history', code => $code,
-                            timeframe => $tf, count => 144,
+                            timeframe => $tf, count => 300,
                             reply => $myself->name});
             $tick_channel = $msg->{tick_channel};
             $ag_channel = $msg->{ag_channel}.$tf;
