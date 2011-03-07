@@ -6,6 +6,8 @@ Finance::GeniusTrader::Conf::load();
 
 package main;
 use strict;
+use Moose;
+use AnyMQ;
 use AnyEvent;
 use YAML::Syck qw(LoadFile);
 use Getopt::Long qw(:config pass_through);
