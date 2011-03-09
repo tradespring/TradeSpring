@@ -61,12 +61,13 @@ method new_bracket_order ($entry_order, $stp, $tp, %args) {
     my $on_exit = delete $args{on_exit};
     my $on_entry = delete $args{on_entry};
     my $entry_annotation = delete $args{entry_annotation} || sub {};
+    my $submit_i = $self->i;
     my $p = TradeSpring::Position->new(
         broker => $self->broker, %args,
         on_entry => sub {
             my ($pos, $price, $qty) = @_;
             $self->format_order($entry_order, $price, $qty);
-            $self->fill_position($pos->direction, $price, $qty, $self->i,
+            $self->fill_position($pos->direction, $price, $qty, $submit_i,
                                  $entry_annotation->());
             $on_entry->(@_) if $on_entry;
         },
