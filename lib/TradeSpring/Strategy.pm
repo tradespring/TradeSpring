@@ -26,6 +26,39 @@ has report_fh => (is => "rw", default => sub { \*STDOUT });
 
 has position_qty => (is => "ro", isa => "Int", default => sub { 1 });
 
+has ps_class => (is => "ro", isa => "Str");
+
+has ps_store => (is => "ro", isa => "Str");
+
+has ps => (is => "rw");
+
+has cost => (is => "rw", isa => 'Num', default => sub { 0 });
+
+
+method BUILD {
+    if (my $class = $self->ps_class) {
+        $class =~ s/^\+// or $class = "TradeSpring::PS::".$class;
+
+        local @ARGV = @{$self->extra_argv};
+        $self->ps(TradeSpring::load_ps($class, $self->ps_store,
+                                       sub {
+                                           warn "==> foo";
+                                           $self->extra_argv($_[0])
+                                       }));
+
+        $self->log->info("loaded position sizing module: ".$self->ps->info);
+        unless ($self->ps->equity) {
+            $self->log->logdie("must specify initial equity");
+        }
+    }
+}
+
+method get_position_qty($r) {
+    return $self->position_qty unless $self->ps;
+
+    return $self->ps->get_qty($r);
+}
+
 method new_position($entry, $stp, $tp, %args) {
     my $pos = TradeSpring::Position->new(broker => $self->broker, %args);
 
@@ -54,15 +87,23 @@ method fill_position($dir, $price, $qty, $submit_i, %attrs) {
             $self->_last_ym($ym);
         }
 
+        my $profit = ($price - $c->{price}) * $c->{dir};
+
         $c->{$_} = $attrs{$_} for keys %attrs;
         syswrite $self->report_fh,
             join(",", $ym.'-'.sprintf('%03d',++$self->{_ym_cnt}), $dt->ymd, $c->{dir},
                    $self->date($c->{i}), $date,
-                   $c->{price}, $price,
-                   ($price - $c->{price}) * $c->{dir},
+                   $c->{price}, $price, $profit,
 
                    map { $self->attrs->{$_}->($self, $c) } sort keys %{$self->attrs}
                ).$/;
+
+        if ($self->ps) {
+            my $n = $self->ps->equity + ($profit - $self->cost) * $qty;
+            $self->log->info("Updating equity: $n");
+            $self->ps->equity( $n );
+        }
+
     }
     else {
         push @$pos, { dir => $dir, price => $price, i => $self->i, qty => $qty,

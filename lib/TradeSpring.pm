@@ -79,6 +79,30 @@ sub load_calc {
     find_calculator(create_db_object(), $code, $tf, 1);
 }
 
+sub load_ps {
+    my ($name, $store, $cb_argv) = @_;
+    my $ps;
+
+    $name->require or die $@;
+
+    if ($store && $name->can('load') && -e $store) {
+        $logger->info("$name: loading $store");
+        $ps = $name->load($store);
+    }
+    else {
+        my $meta = Moose::Meta::Class->create_anon_class(
+            superclasses => [$name],
+            roles        => [qw(MooseX::SimpleConfig MooseX::Getopt)],
+            cache        => 1,
+        );
+
+        $ps = $meta->name->new_with_options;
+        $cb_argv->($ps->extra_argv) if $cb_argv;
+        $ps = $name->new(%$ps);
+    }
+    return $ps;
+}
+
 sub load_strategy {
     my ($name, $calc, $broker, $fh) = @_;
     $fh ||= \*STDOUT;
@@ -105,6 +129,7 @@ sub load_strategy {
 
     my $strategy = $meta->name->new_with_options( report_fh => $fh, calc => $calc, @args );
 
+    @ARGV = @{$strategy->extra_argv};
     syswrite $fh,
         join(",", qw(id date dir open_date close_date open_price close_price profit),
              sort keys %{$name->attrs}).$/
