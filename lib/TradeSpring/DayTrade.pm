@@ -37,6 +37,7 @@ before run => method {
             my ($y, $m, $d) = split(/[-\s]/, $date);
             $self->current_date(DateTime->new(year => $y, month => $m, day => $d));
         }
+        $self->on_day_start if $self->can('on_day_start');
     }
 };
 
