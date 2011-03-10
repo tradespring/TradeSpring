@@ -232,7 +232,8 @@ sub run_tick_fitf {
     require Finance::FITF;
     my ($daytrade, $lb, $date, $time) = @_;
 
-    $logger->info("run tick until: $time ".$daytrade->date);
+    $logger->debug("run tick until: $time ".$daytrade->date)
+        if $logger->is_debug;
     if (!$fitf || $fitf->header->{date} ne $date->ymd('')) {
         $fitf = Finance::FITF->new_from_file(
             fitf_store($date)) or die;
