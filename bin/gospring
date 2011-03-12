@@ -28,6 +28,10 @@ my $lb = TradeSpring::local_broker();
 
 my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb);
 
+if (@ARGV) {
+    die "unhandled arg: ".join(',',@ARGV);
+}
+
 for my $i ($first..$last) {
     TradeSpring::run_trade($daytrade, $i, $simprices, $fitf);
 }
