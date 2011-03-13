@@ -56,7 +56,9 @@ method mk_order($dir) {
           price => $bb->current_value,
           qty => $self->position_qty },
         { price => $bb->current_value * ( 1 - 0.01 * $dir) },
-        undef,
+        { type => 'mkt',
+          price => 0,
+          timed => $self->order_timed(13, 29, 57) },
         on_entry => sub {
             my $pos = shift;
             $self->direction($dir);
