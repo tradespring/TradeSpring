@@ -42,7 +42,6 @@ method BUILD {
         local @ARGV = @{$self->extra_argv};
         $self->ps(TradeSpring::load_ps($class, $self->ps_store,
                                        sub {
-                                           warn "==> foo";
                                            $self->extra_argv($_[0])
                                        }));
 
