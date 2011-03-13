@@ -1,4 +1,5 @@
 package TradeSpring::DayTrade;
+use 5.10.1;
 use Moose::Role;
 use Method::Signatures::Simple;
 
@@ -32,10 +33,13 @@ before run => method {
         if ($self->meta->find_attribute_by_name('dcalc') && $self->i > 0) {
             my ($last_day) = $self->date($self->i-1) =~ m/^([\d-]+)/;
 
-            $self->dframe->i( $self->dcalc->prices->date($last_day) );
+            $self->dframe->i( $self->dcalc->prices->date($last_day) //
+                              $self->dcalc->prices->date($last_day.' 00:00:00') );
             my $date = $self->date;
             my ($y, $m, $d) = split(/[-\s]/, $date);
-            $self->current_date(DateTime->new(year => $y, month => $m, day => $d));
+            $self->current_date(DateTime->new(year => $y, month => $m, day => $d,
+                                              time_zone => 'Asia/Taipei',
+                                          ));
         }
         $self->on_day_start if $self->can('on_day_start');
     }
