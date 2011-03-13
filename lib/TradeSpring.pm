@@ -104,7 +104,7 @@ sub load_ps {
 }
 
 sub load_strategy {
-    my ($name, $calc, $broker, $fh) = @_;
+    my ($name, $calc, $broker, $fh, $load_day_from_db) = @_;
     $fh ||= \*STDOUT;
     try { eval $name->meta }
     catch {
@@ -121,9 +121,24 @@ sub load_strategy {
     );
 
     if ($meta->find_attribute_by_name('dcalc')) {
-        my $dcalc = Storable::dclone($calc);
-        $dcalc->create_timeframe($Finance::GeniusTrader::DateTime::DAY);
-        $dcalc->set_current_timeframe($Finance::GeniusTrader::DateTime::DAY);
+        my $dcalc;
+        if ($load_day_from_db) {
+            ($dcalc) = load_calc($calc->code, 'day');
+            my ($f, $l) = map { $dcalc->prices->date($_.' 00:00:00') }
+                map {
+                    $calc->prices->at($_)->[$DATE] =~ m/^([\d-]+)/;
+                } (0, $calc->prices->count-1);
+            unless (defined $f && defined $l) {
+                $logger->error("day db not up-to-date.");
+                undef $dcalc;
+            }
+        }
+
+        if (!$dcalc) {
+            $dcalc = Storable::dclone($calc);
+            $dcalc->create_timeframe($Finance::GeniusTrader::DateTime::DAY);
+            $dcalc->set_current_timeframe($Finance::GeniusTrader::DateTime::DAY);
+        }
         push @args, (dcalc => $dcalc);
     }
 

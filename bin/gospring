@@ -26,7 +26,7 @@ TradeSpring::init_logging($logconf || 'log.conf');
 
 my $lb = TradeSpring::local_broker();
 
-my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb);
+my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb, undef, 1);
 
 if (@ARGV) {
     die "unhandled arg: ".join(',',@ARGV);
