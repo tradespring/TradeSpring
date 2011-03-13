@@ -41,6 +41,10 @@ before run => method {
     }
 };
 
+method order_timed($h, $m, $s) {
+    return $self->current_date->epoch + $h * 3600 + $m * 60 + $s;
+}
+
 after run => method {
     if (defined $self->day_high) {
         $self->day_high->test($self->i);

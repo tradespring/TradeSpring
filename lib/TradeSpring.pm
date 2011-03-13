@@ -186,9 +186,18 @@ sub run_prices {
     if (keys %{$lb->orders}) {
         my ($date, $time) = split(/ /, $strategy->calc->prices->at($i)->[$DATE]);
 
+        # XXX current_date is not set properly for the first bar, but
+        # right now run_prices is unlikely to be called before the first bar
+        my $dt = $strategy->can('current_date') ?
+            $strategy->current_date : $Strp->parse_datetime($date);
+
+        my ($h, $m, $s) = split(/:/, $time);
+        my $ds = $h * 3600 + $m * 60 + $s;
+
         return unless
-            grep { ($_->{order}{timed} && $time ge $_->{order}{timed}) ||
-                       ($_->{order}{type} eq 'mkt') ||
+            grep { $_->{order}{timed}
+                   ? $dt->epoch + $ds >= $_->{order}{timed}
+                   :   ($_->{order}{type} eq 'mkt') ||
                        ($_->{order}{price} &&
                         $_->{order}{price} <= $strategy->high &&
                         $_->{order}{price} >= $strategy->low) ||
@@ -198,11 +207,9 @@ sub run_prices {
                     values %{$lb->orders};
 
         if ($sim) {
-            sim_prices($strategy, $lb);
+            sim_prices($strategy, $lb, $dt, $time);
         }
         elsif ($fitf) {
-            my $dt = $strategy->can('current_date') ?
-                $strategy->current_date : $Strp->parse_datetime($date);
             run_tick_fitf($strategy, $lb, $dt, $time);
         }
         else {
@@ -214,7 +221,7 @@ sub run_prices {
 use POSIX qw(ceil floor);
 
 sub sim_prices {
-    my ($strategy, $lb) = @_;
+    my ($strategy, $lb, $dt, $time) = @_;
 
     $logger->debug("simulate prices for bar: ".$strategy->date);
 
@@ -236,11 +243,14 @@ sub sim_prices {
         @p = (@prices_up, @prices_down)
     }
 
-    my $d = $strategy->date;
-    @p = ($strategy->open, @p, $strategy->close);
+    my $nsecs = Finance::GeniusTrader::DateTime::timeframe_ratio($strategy->calc->prices->timeframe, $PERIOD_1MIN) * 60;
+    my ($h, $m, $s) = split /:/, $time;
+    my $ts = $dt->epoch + $h * 3600 + $m * 60 + $s;
+    my $d = $strategy->date; # XXX: fix for timed orders
+    @p = ($strategy->open, @p);
     my %seen = map { $_ => 1 } @p;
     while (my $tick = shift @p) {
-        $lb->on_price($tick, undef, $d);
+        $lb->on_price($tick, undef, { timestamp => $ts - $nsecs});
         for my $o (grep { $_->{order}{type} eq 'stp' }
                        values %{$lb->orders} ) {
             my $p = $o->{order}{price};
@@ -250,6 +260,7 @@ sub sim_prices {
             }
         }
     }
+    $lb->on_price($strategy->close, undef, { timestamp => $ts - 2 });
 }
 
 my $fitf;
@@ -274,7 +285,6 @@ sub run_tick_fitf {
     my $ymd = $date->ymd;
     my $last_price;
     my $last_time;
-    my $last_formatted_time;
     my $broker_update;
     my %prices_seen;
     $fitf->run_ticks($start_b->{index} + $start_b->{ticks},
@@ -291,9 +301,7 @@ sub run_tick_fitf {
                              $broker_update = $lb->{timestamp};
                          }
 #                         return if $prices_seen{$price}++;
-                         $last_formatted_time = $fitf->format_timestamp($timestamp)
-                             if !$last_time ||$last_time != $timestamp;
-                         $lb->on_price($price, $volume, $last_formatted_time);
+                         $lb->on_price($price, $volume, { timestamp => $timestamp });
                          $last_price = $price; $last_time = $timestamp;
                      });
 
@@ -383,9 +391,7 @@ sub live_handler {
             print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
             print "\r";
 
-            $time =~ s/(\d\d?)(\d\d)(\d\d)/$1:$2:$3/;
-            $time = '0'.$time unless substr($time, 0, 1) eq '1';
-            $broker->on_price($msg->{price}, $msg->{volume}, $time);
+            $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
         }
         else {
             $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
