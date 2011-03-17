@@ -101,6 +101,7 @@ method fill_position($dir, $price, $qty, $submit_i, %attrs) {
             my $n = $self->ps->equity + ($profit - $self->cost) * $qty;
             $self->log->info("Updating equity: $n");
             $self->ps->equity( $n );
+            $self->ps->store($self->ps_store) if $self->ps_store;
         }
 
     }

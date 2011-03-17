@@ -2,11 +2,12 @@ package TradeSpring::PS::MarketMoney;
 use Moose;
 use Method::Signatures::Simple;
 use MooseX::Storage;
+use List::Util qw(min max sum);
 
 with Storage(format => 'YAML', io => 'File', traits => ['OnlyWhenBuilt']);
 
 with 'MooseX::Log::Log4perl';
-use List::Util qw(min max sum);
+has '+logger' => ( traits => [ 'DoNotSerialize' ] );
 
 has base => (is => "rw", isa => "Num", default => sub { 0 });
 has equity => (is => "rw", isa => "Num", trigger => \&_set_equity, default => sub { 0 });
