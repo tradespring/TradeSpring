@@ -26,8 +26,14 @@ use Log::Log4perl::Level;
 our $logger;
 sub init_logging {
     my $logconf = shift;
+    my $watch = shift;
     if (-e $logconf) {
-        Log::Log4perl::init_and_watch($logconf, 60);
+        if ($watch) {
+            Log::Log4perl::init_and_watch($logconf, 60);
+        }
+        else {
+            Log::Log4perl::init($logconf);
+        }
     }
     else {
         Log::Log4perl->easy_init($INFO);
