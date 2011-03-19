@@ -218,13 +218,7 @@ sub run_prices {
         return unless
             grep { $_->{order}{timed}
                    ? $dt->epoch + $ds >= $_->{order}{timed}
-                   :   ($_->{order}{type} eq 'mkt') ||
-                       ($_->{order}{price} &&
-                        $_->{order}{price} <= $strategy->high &&
-                        $_->{order}{price} >= $strategy->low) ||
-                       ($_->{order}{type} eq 'stp' &&
-                        $_->{order}{dir} * ( $_->{order}{dir} > 0 ? $strategy->high : $strategy->low) >=
-                        $_->{order}{price} * $_->{order}{dir}) }
+                   : _order_effective($strategy, $_->{order}) }
                     values %{$lb->orders};
 
         if ($sim) {
@@ -236,6 +230,26 @@ sub run_prices {
         else {
             warn "not sure what to do";
         }
+    }
+}
+
+sub _order_effective {
+    my ($strategy, $order) = @_;
+
+    return 1 if $order->{type} eq 'mkt';
+
+    if ($order->{type} eq 'stp') {
+        if (exists $order->{effective}) {
+            return $order->{effective} <= $strategy->high &&
+                   $order->{effective} >= $strategy->low;
+        }
+        return $order->{dir} * ( $order->{dir} > 0 ? $strategy->high : $strategy->low)
+            >= $order->{price} * $order->{dir};
+    }
+
+    if ($order->{price}) {
+        return $order->{price} <= $strategy->high &&
+               $order->{price} >= $strategy->low;
     }
 }
 
