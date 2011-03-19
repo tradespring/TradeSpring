@@ -28,7 +28,7 @@ sub mk_cb {
           ("on_$name" => sub { shift; push @$log, [$name, @_] }) } @cb;
 }
 
-my $ts = '2010-12-13 11:20:00';
+my $ts = {timestamp => 1292210399 } ; #'2010-12-13 11:20:00';
 {
     my $log = [];
 
