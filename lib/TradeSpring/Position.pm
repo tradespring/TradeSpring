@@ -34,7 +34,7 @@ method _submit_exit_order($type, $order) {
     $id = $self->exit_id_map->{$type} = $self->broker->register_order(
         $order,
         on_ready => sub {
-            $self->log('order')->info("order ready: ".join(',',@_));
+            $self->log('order')->info("order ready($type): ".join(',',@_));
         },
         on_match => sub {
             my ($price, $qty) = @_;
