@@ -243,6 +243,7 @@ sub _order_effective {
             return $order->{effective} <= $strategy->high &&
                    $order->{effective} >= $strategy->low;
         }
+        return 1 if $order->{trail};
         return $order->{dir} * ( $order->{dir} > 0 ? $strategy->high : $strategy->low)
             >= $order->{price} * $order->{dir};
     }
