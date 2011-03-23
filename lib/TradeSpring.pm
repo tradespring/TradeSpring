@@ -196,7 +196,7 @@ sub run_trade {
     $strategy->run();
 }
 
-use List::Util qw(min);
+use List::MoreUtils qw(none);
 
 sub run_prices {
     my ($strategy, $datetime, $i, $sim, $fitf) = @_;
@@ -215,8 +215,8 @@ sub run_prices {
         my ($h, $m, $s) = split(/:/, $time);
         my $ds = $h * 3600 + $m * 60 + $s;
 
-        return unless
-            grep { $_->{order}{timed}
+        return if
+            none { $_->{order}{timed}
                    ? $dt->epoch + $ds >= $_->{order}{timed}
                    : _order_effective($strategy, $_->{order}) }
                     values %{$lb->orders};
