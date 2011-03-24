@@ -40,6 +40,14 @@ method _submit_exit_order($type, $order) {
             my ($price, $qty) = @_;
             $self->{position_exited} += $qty;
         },
+        on_error => sub {
+            # XXX: recover procedure:
+            # - unexpeted errors
+            #   - stop strategy new positions
+            #   - check submitted order
+            my ($type, $msg) = @_;
+            $self->log->error("order failed: $type $msg");
+        },
         on_summary => sub {
             # XXX: consolidate tp/stp orders's summary for actual on_exit price
             my $o = $self->broker->get_order($id);
