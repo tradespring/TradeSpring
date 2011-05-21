@@ -17,6 +17,7 @@ has calc => (is => "ro", isa => "Finance::GeniusTrader::Calculator",
 has day => (is => "ro", isa => "DateTime");
 
 has hour => (is => "rw");
+has last_hour => (is => "rw");
 has is_dstart => (is => "rw", default => sub { 1 });
 
 method _set_hour($i) {
@@ -31,6 +32,8 @@ method _set_hour($i) {
     else {
         $self->is_dstart(0);
     }
+
+    $self->last_hour($old);
 }
 
 method prices {
