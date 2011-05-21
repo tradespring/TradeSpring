@@ -18,8 +18,6 @@ sub local_broker {
      );
 }
 
-use TradeSpring::Broker::JFO;
-use JFO::Config;
 use Net::Address::IP::Local;
 use Log::Log4perl;
 use Log::Log4perl::Level;
@@ -43,6 +41,11 @@ sub init_logging {
 
 our $Config;
 sub jfo_broker {
+    eval {
+        require TradeSpring::Broker::JFO;
+        require JFO::Config;
+    } or die 'jfo required';
+
     my $cname = shift;
     my $port = shift;
     my %args = @_;
