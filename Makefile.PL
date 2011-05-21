@@ -18,6 +18,10 @@ requires 'Method::Signatures::Simple';
 requires 'Number::Extreme';
 requires 'MooseX::ClassAttribute';
 requires 'DateTime::Format::Strptime';
+requires 'List::MoreUtils';
+
 requires 'Math::Random::MT';
+
+requires 'Statistics::Basic';
 
 WriteAll;
