@@ -19,6 +19,7 @@ requires 'Number::Extreme';
 requires 'MooseX::ClassAttribute';
 requires 'DateTime::Format::Strptime';
 requires 'List::MoreUtils';
+requires 'List::AllUtils';
 
 requires 'Math::Random::MT';
 
