@@ -129,6 +129,7 @@ sub load_strategy {
     if ($meta->find_attribute_by_name('dcalc')) {
         my $dcalc;
         if ($load_day_from_db) {
+            eval {
             ($dcalc) = load_calc($calc->code, 'day');
             my ($f, $l) = map { $dcalc->prices->date($_.' 00:00:00') }
                 map {
@@ -138,6 +139,7 @@ sub load_strategy {
                 $logger->error("day db not up-to-date.");
                 undef $dcalc;
             }
+        }
         }
 
         if (!$dcalc) {
