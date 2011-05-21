@@ -15,6 +15,8 @@ method mk_directional_method($pkg: $name, $long_name, $short_name, $is_function)
     my ($long, $short) = map { ref($_) eq 'CODE' ? $_ : $pkg->can($_) }
 #                                   || die "method $_ not defined for diretional method $name of $pkg" }
         ($long_name, $short_name);
+
+    # XXX: the cache wants to be per-instance
     $pkg->meta->add_method
         ($name =>
              Moose::Meta::Method->wrap(
@@ -22,12 +24,10 @@ method mk_directional_method($pkg: $name, $long_name, $short_name, $is_function)
                      my ($self) = @_;
                      shift if $is_function;
                      if ($self->direction > 0) {
-                         $long ||= $self->can($long_name);
-                         goto $long;
+                         goto ($long || $self->can($long_name));
                      }
                      if ($self->direction < 0) {
-                         $short ||= $self->can($short_name);
-                         goto $short;
+                         goto ($short || $self->can($short_name));
                      }
                      croak "better requires direction being set";
                  },
