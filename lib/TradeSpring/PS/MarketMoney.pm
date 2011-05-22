@@ -31,7 +31,8 @@ method reset_base($e) {
     $self->equity($e);
 }
 
-method _set_equity($e) {
+method _set_equity($e, $old) {
+    return unless defined $old; # skip constructor
     my $total = $self->equity_seen;
     push @$total, $e;
     my $ma = $self->base_reset_ma;
