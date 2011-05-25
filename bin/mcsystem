@@ -105,7 +105,7 @@ for my $year (uniq sort map { $_->{date} =~ m/^(\d+)/ } @$r ) {
 sub _format_seq {
     my $seq = shift;
     my $res = res_for_seq($seq, @_);
-    sprintf '%4d trades(rej: %2d, max qty: %3d), %10.2f%%, mdd: %5.2f%%', scalar @$seq, $res->{rejected}, $res->{maxqty}, ($res->{end} / $initial-1) * 100, $res->{mddpct} * 100;
+    sprintf '%4d trades(rej: %2d, max qty: %3d), %10.2f%%, mdd: %5.2f%% (%d)', scalar @$seq, $res->{rejected}, $res->{maxqty}, ($res->{end} / $initial-1) * 100, $res->{mddpct} * 100, $res->{mdd};
 }
 
 
