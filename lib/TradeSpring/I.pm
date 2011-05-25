@@ -1,6 +1,10 @@
 package TradeSpring::I;
 
 use Moose;
+use UNIVERSAL::require;
+with 'MooseX::Traits';
+
+has '+_trait_namespace' => (default => 'TradeSpring::I::Role');
 
 has frame => (is => "ro", isa => "TradeSpring::Frame",
               handles => [qw(i calc date open high highest_high low lowest_low close debug)],
@@ -18,9 +22,27 @@ has as_string => (
     lazy_build => 1
 );
 
+has loader => (is => "rw");
+
+
+sub load {
+    my ($self, $name, %args) = @_;
+    my $module = $name =~ /^\+/ ? $name : "TradeSpring::I::$name";
+    $module->require or die $@;
+
+    return $self->loader->load($module, %args)
+        if $self->loader;
+
+    $module->new( %args, frame => $self->frame);
+
+}
+
 sub _build_as_string {
     my $self = shift;
-    $self->meta->name.'('.
+    my $name = $self->meta->name;
+    $name = ($self->meta->superclasses)[0] if $name =~ /__ANON__/;
+
+    $name.'('.
     join(',',
     map {
         ref $self->$_ ? $self->$_->as_string : $self->$_
@@ -33,7 +55,7 @@ sub _build_params {
     my $self = shift;
 ##    warn "==> build params: ".join(',',map { $_->name} grep { $_->does('TradeSpring::Meta::Attribute::Trait::IParam' ) }
 #             $self->meta->get_all_attributes);
-    return [map { $_->name }
+    return [map { $_->name } sort { $a->index <=> $b->index }
          grep { $_->does('TradeSpring::Meta::Attribute::Trait::IParam' ) }
              $self->meta->get_all_attributes ]
 }
@@ -45,7 +67,7 @@ sub BUILD {
                       $self->meta->get_all_attributes) {
 
         my $name = $attr->name.'_value';
-        next unless $self->meta->has_attribute($name);
+        next unless $self->meta->find_attribute_by_name($name);
         my $ichild = $attr->get_value($self);
         warn "===> $ichild -> $name of $self";
         if (UNIVERSAL::isa($ichild, 'TradeSpring::I')) {
@@ -72,6 +94,8 @@ sub calculate {
 
 }
 
+sub do_calculate { die 'must implement' };
+
 
 __PACKAGE__->meta->make_immutable;
 no Moose;
@@ -86,12 +110,22 @@ sub register_implementation {'TradeSpring::Meta::Attribute::Trait::IParam'}
 package TradeSpring::Meta::Attribute::Trait::IParam;
 use Moose::Role;
 
+
+after 'attach_to_class' => sub {
+    my ($self, $class) = @_;
+    $self->{index} = (($class->{nparam} ||= 0)++);
+};
+
+has index => (
+    is      => 'ro' ,
+    isa     => 'Int' ,
+);
+
 1;
 
 
 package TradeSpring::Meta::Attribute::Trait::Depended;
 use Moose::Role;
 
-with 'TradeSpring::Meta::Attribute::Trait::IParam';
 
 1;

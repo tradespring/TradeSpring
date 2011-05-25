@@ -5,7 +5,7 @@ use Statistics::Basic::Mean;
 extends 'TradeSpring::I';
 
 has n => (is => "ro", isa => "Int", traits => ['IParam']);
-has arg => (is => "ro", traits => ['Depended']);
+has arg => (is => "ro", traits => ['IParam', 'Depended'], default => sub { 'close' } );
 
 has arg_value => (is => "rw");
 
