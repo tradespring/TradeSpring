@@ -7,7 +7,7 @@ with 'MooseX::Traits';
 has '+_trait_namespace' => (default => 'TradeSpring::I::Role');
 
 has frame => (is => "ro", isa => "TradeSpring::Frame",
-              handles => [qw(i calc date open high highest_high low lowest_low close debug)],
+              handles => [qw(i calc date open high highest_high low lowest_low close hour last_hour is_dstart debug)],
 );
 
 has params => (
