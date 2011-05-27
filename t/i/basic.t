@@ -88,9 +88,12 @@ my $loader2 = TradeSpring::IManager->new(frame => $f, indicator_traits => ['Stri
     my @res;
     $f->i(0);
     push @res, $i5->do_calculate();
+    $f->i(1);
+    push @res, $i5->do_calculate();
     throws_ok {
+        $f->i(0);
         push @res, $i5->do_calculate();
-    } qr'TradeSpring::I::SMA\(8,close\) not called with incremental i: 0, was: 0';
+    } qr'TradeSpring::I::SMA\(8,close\) not called with incremental i: 0, was: 1';
 }
 
 done_testing;
