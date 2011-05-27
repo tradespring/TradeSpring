@@ -71,9 +71,7 @@ sub BUILD {
         my $ichild = $attr->get_value($self);
         warn "===> $ichild -> $name of $self";
         if (UNIVERSAL::isa($ichild, 'TradeSpring::I')) {
-            $self->$name(sub {
-                                 $ichild->do_calculate
-                             })
+            $self->$name( $self->build_depended_attribute($name, $ichild) );
         }
         else {
             $self->$name(sub {
@@ -82,6 +80,13 @@ sub BUILD {
         }
     }
 
+}
+
+sub build_depended_attribute {
+    my ($self, $name, $ichild) = @_;
+    return sub {
+        $ichild->do_calculate
+    }
 }
 
 use List::MoreUtils qw(zip);
