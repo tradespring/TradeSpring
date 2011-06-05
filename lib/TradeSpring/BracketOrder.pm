@@ -42,6 +42,14 @@ method update_stp_price($price, $cb) {
         if $self->bt($price, $stp->{order}{price});
 }
 
+method update_order_price($type, $price, $cb) {
+
+    my $id = $self->position->exit_id_map->{$type};
+
+    $self->broker->update_order($id, $price,
+                                undef, $cb);
+}
+
 method format_order($order, $price, $qty) {
     return unless $self->order_report_fh;
     syswrite $self->order_report_fh,
