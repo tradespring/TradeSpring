@@ -69,7 +69,7 @@ sub BUILD {
         my $name = $attr->name.'_value';
         next unless $self->meta->find_attribute_by_name($name);
         my $ichild = $attr->get_value($self);
-        warn "===> $ichild -> $name of $self";
+
         if (UNIVERSAL::isa($ichild, 'TradeSpring::I')) {
             $self->$name( $self->build_depended_attribute($name, $ichild) );
         }
