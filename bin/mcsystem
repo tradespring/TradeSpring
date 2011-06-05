@@ -85,16 +85,21 @@ my $res = res_for_seq([0..$n], sub { 1 });
 warn "n = ".(scalar @{$r}).$/;
 warn Dumper($res); use Data::Dumper;
 
-print "Plain: ".$/;
 for my $year (uniq sort map { $_->{date} =~ m/^(\d+)/ } @$r ) {
-    my $f = firstidx { $r->[$_]{date} =~ m/^$year/ } 0..$n;
-    print "Since $year: "._format_seq([$f..$n], sub { 1 }).$/;
+    my @seq = grep { $r->[$_]{date} =~ m/^$year/ } 0..$n;
+    print "$year: "._format_seq(\@seq, sub { 1 }).$/;
 }
 
 print "With MM: ".$/;
 for my $year (uniq sort map { $_->{date} =~ m/^(\d+)/ } @$r ) {
     my @seq = grep { $r->[$_]{date} =~ m/^$year/ } 0..$n;
     print "$year: "._format_seq(\@seq).$/;
+}
+
+print "Plain: ".$/;
+for my $year (uniq sort map { $_->{date} =~ m/^(\d+)/ } @$r ) {
+    my $f = firstidx { $r->[$_]{date} =~ m/^$year/ } 0..$n;
+    print "Since $year: "._format_seq([$f..$n], sub { 1 }).$/;
 }
 
 print "Cumulated:".$/;
