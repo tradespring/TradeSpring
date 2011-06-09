@@ -20,6 +20,8 @@ requires 'MooseX::ClassAttribute';
 requires 'DateTime::Format::Strptime';
 requires 'List::MoreUtils';
 requires 'List::AllUtils';
+requires 'UNIVERSAL::require';
+requires 'Graph';
 
 requires 'Math::Random::MT';
 
