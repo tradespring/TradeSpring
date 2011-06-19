@@ -291,11 +291,15 @@ sub sim_prices {
     @p = ($strategy->open, @p);
     my %seen = map { $_ => 1 } @p;
     while (my $tick = shift @p) {
+        my $bts = $lb->{timestamp};
         $lb->on_price($tick, undef, { timestamp => $ts - $nsecs});
-        for my $o (grep { $_->{order}{type} eq 'stp' }
+        for my $o (grep { $_->{order}{type} eq 'stp' || $_->{order}{type} eq 'lmt' }
                        values %{$lb->orders} ) {
             my $p = $o->{order}{price};
             $p = $o->{order}{dir} > 0 ? ceil($p) : floor($p);
+            if ($bts != $lb->{timestamp}) { # some new order happened
+                unshift @p, $tick;
+            }
             if ($p < $strategy->high && $p > $strategy->low && !$seen{$p}++) {
                 unshift @p, $p;
             }
