@@ -34,7 +34,7 @@ method load($module, %args) {
 }
 
 method load_module($module, %args) {
-    $module->require;
+    $module->require or die $@;
     if (my $traits = $self->indicator_traits) {
         return $module->new_with_traits( %args, frame => $self->frame, traits => $traits, loader => $self)
     }
