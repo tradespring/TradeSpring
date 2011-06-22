@@ -7,6 +7,17 @@ use Finance::GeniusTrader::Prices;
 
 extends 'TradeSpring::IManager';
 
+has redis => (
+    is => "rw",
+    lazy_build => 1
+);
+
+method _build_redis {
+    my $redis = Redis::hiredis->new();
+    $redis->connect('127.0.0.1', 6379);
+    return $redis;
+}
+
 with 'MooseX::Log::Log4perl';
 
 around 'indicator_traits' => sub {
@@ -21,65 +32,80 @@ around 'load' => sub {
     $self->$next($name, %args);
 };
 
-method get_values($name, $start, $end, $use_cache) {
-    my $ix = $self->indicators->{$name};
-    my $object_name = $ix->as_string;
+method get_values($object, $start, $end, $use_cache) {
+    my $object_name = $object->as_string;
 
-    $ix->{span} ||= Set::IntSpan->new([]);
-    my $diff = Set::IntSpan->new([[$start, $end]])->diff($ix->{span});
+    $object->{span} ||= Set::IntSpan->new([]);
+    my $diff = Set::IntSpan->new([[$start, $end]])->diff($object->{span});
     for ($diff->spans) {
         my ($start, $end) = @$_;
-        $self->populate_indicator($ix, $object_name, $start, $end, $use_cache);
-        $ix->{span}->U([[$start, $end]]);
+        $self->populate_indicator($object, $start, $end, $use_cache);
+        $object->{span}->U([[$start, $end]]);
     }
 }
 
-method populate_indicator($object, $object_name, $start, $end, $use_cache) {
+method calculate_interval($object, $start, $end) {
+    for my $i ($start..$end) {
+        $self->frame->i($i);
+        $object->do_calculate;
+    }
+}
 
-    my $do_calc = sub {
-        my ($start, $end ) = @_;
-        for my $i ($start..$end) {
-            $self->frame->i($i);
-            $object->do_calculate;
+method populate_indicator($object, $start, $end, $use_cache) {
+    my $object_name = $object->as_string;
+
+    return $self->calculate_interval($object, $start, $end) unless $use_cache;
+
+    $self->retrieve_cache('tscache', $object, $start, $end);
+}
+
+method prepare($start, $end, $use_cache) {
+    for my $object (@{ $self->order }) {
+        if ($use_cache) {
+            $self->populate_cache('tscache', $object, $end);
         }
-    };
-
-    return $do_calc->($start, $end) unless $use_cache;
-
-    $self->populate_cache(
-        'tscache', $object_name, $start, $end,
-        $do_calc,
-        sub {
-            # XXX: this stringifies thing
-            [map { ref $object->cache->{$_} ? join(',', @{$object->cache->{$_}}) : $object->cache->{$_} }
-                 ($_[0] .. $end) ]
-        },
-        sub {
-            my $vals = $_[0];
-            for (0..$#{$vals}) {
-                $object->cache->{$_+$start} = $vals->[$_] eq '' ? undef : [ map { 0+$_} split/,/, $vals->[$_] ];
-            }
+        else {
+            $self->get_values($object, $start, $end);
         }
-    );
+    }
 }
 
 use constant TSCACHE_VERSION => 1;
 
-method populate_cache($prefix, $object_name, $start, $end, $calculate, $vals, $restore) {
-    $self->log->info("populating cache for $object_name till $end");
+method cache_key($prefix, $object) {
     my $calc = $self->frame->calc;
-
     my $tf = Finance::GeniusTrader::DateTime::name_of_timeframe($calc->prices->timeframe);
-    my $code = $calc->code;
 
-    my $key = join(':', $prefix, $code, $tf, $object_name);
+    return join(':', $prefix, $calc->code, $tf, $object->as_string);
+}
 
-    my $redis = Redis::hiredis->new();
-    $redis->connect('127.0.0.1', 6379);
+method retrieve_cache($prefix, $object, $start, $end) {
+    $self->log->info("retrieve @{[$object->as_string]} from cache: $start..$end");
+
+    my $redis = $self->redis;
+    my $key = $self->cache_key($prefix, $object);
 
     my $info = { @{ $redis->command([hgetall => "$key:meta"]) } };
-    my ($start_d, $end_d) = map { $calc->prices->at($_)->[$DATE] } 0, $end || $calc->prices->count-1;
-    my ($cache_start, $cache_end) = (0, $end || $calc->prices->count-1);
+
+    $self->log->info("loading from cache: $key: $start..$end");
+    my $vals = $redis->command([lrange => $key,  $start, $end]);
+    for (0..$#{$vals}) {
+        $object->cache->{$_+$start} = $vals->[$_] eq '' ? undef : [ map { 0+$_} split/,/, $vals->[$_] ];
+    }
+}
+
+method populate_cache($prefix, $object, $end) {
+    my $object_name = $object->as_string;
+    my $calc = $self->frame->calc;
+    $end ||= $calc->prices->count-1;
+    $self->log->info("verifying cache for $object_name");
+    my $redis = $self->redis;
+    my $key = $self->cache_key($prefix, $object);
+
+    my $info = { @{ $redis->command([hgetall => "$key:meta"]) } };
+    my ($start_d, $end_d) = map { $calc->prices->at($_)->[$DATE] } 0, $end;
+    my ($cache_start, $cache_end) = (0, $end);
+
     if (%$info) {
         if ($info->{version} && $info->{version} != TSCACHE_VERSION) {
             $self->log->warn("version mismatch, discard");
@@ -100,13 +126,13 @@ method populate_cache($prefix, $object_name, $start, $end, $calculate, $vals, $r
             $info = {};
             $redis->command(["del" => $key]);
         }
-
-        $self->log->info("loading from cache: $key: $start..$end");
-        $restore->($redis->command([lrange => $key,  $start, $end]) );
     }
 
     unless (%$info) {
-        $calculate->($cache_start, $cache_end);
+        $self->calculate_interval($object, $cache_start, $cache_end);
+        $object->{span} ||= Set::IntSpan->new([]);
+        $object->{span}->U([[$cache_start, $cache_end]]);
+
         my $info = {
             version => TSCACHE_VERSION,
             count => $cache_end,
@@ -116,8 +142,10 @@ method populate_cache($prefix, $object_name, $start, $end, $calculate, $vals, $r
 
         $redis->command([hmset => "$key:meta", %$info]);
 
-        for my $val (@{ $vals->($cache_start) }) {
-            $redis->command([rpush => $key, $val // '']);
+        for ($cache_start .. $cache_end) {
+            no warnings 'uninitialized';
+            $redis->command([rpush =>
+                             $key => join(',', @{$object->cache->{$_}}) // '']);
         }
     }
 }
