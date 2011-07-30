@@ -98,16 +98,22 @@ method populate_cache($prefix, $object, $end) {
     my $object_name = $object->as_string;
     my $calc = $self->frame->calc;
     $end ||= $calc->prices->count-1;
-    $self->log->info("verifying cache for $object_name");
     my $redis = $self->redis;
     my $key = $self->cache_key($prefix, $object);
+    $self->log->info("verifying cache for $key");
 
     my $info = { @{ $redis->command([hgetall => "$key:meta"]) } };
     my ($start_d, $end_d) = map { $calc->prices->at($_)->[$DATE] } 0, $end;
     my ($cache_start, $cache_end) = (0, $end);
 
+    my $i_version = $self->VERSION || '0.0';
     if (%$info) {
         if ($info->{version} && $info->{version} != TSCACHE_VERSION) {
+            $self->log->warn("version mismatch, discard");
+            $info = {};
+            $redis->command(["del" => $key]);
+        }
+        elsif (!$info->{iversion} || $info->{iversion} != $i_version) {
             $self->log->warn("version mismatch, discard");
             $info = {};
             $redis->command(["del" => $key]);
@@ -135,6 +141,7 @@ method populate_cache($prefix, $object, $end) {
 
         my $info = {
             version => TSCACHE_VERSION,
+            iversion => $i_version,
             count => $cache_end,
             start => $start_d,
             end   => $end_d,
