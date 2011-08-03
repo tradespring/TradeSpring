@@ -12,9 +12,19 @@ has redis => (
     lazy_build => 1
 );
 
+has redis_host => (is => "rw", isa => "Str", default => sub { '127.0.0.1' });
+has redis_port => (is => "rw", isa => "Int", default => sub { 6379 });
+has redis_password => (is => "rw", isa => "Str", default => sub { '' });
+
+
 method _build_redis {
     my $redis = Redis::hiredis->new();
-    $redis->connect('127.0.0.1', 6379);
+    $redis->connect($self->redis_host, $self->redis_port);
+    if (length $self->redis_password) {
+        my $res = $redis->command([auth => $self->redis_password]);
+        die unless $res eq 'OK';
+    }
+
     return $redis;
 }
 
