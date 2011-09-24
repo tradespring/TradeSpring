@@ -22,9 +22,12 @@ requires 'List::MoreUtils';
 requires 'List::AllUtils';
 requires 'UNIVERSAL::require';
 requires 'Graph';
+requires 'Data::Walk';
 
 requires 'Math::Random::MT';
 
 requires 'Statistics::Basic';
+
+test_requires 'Test::Log::Log4perl';
 
 WriteAll;
