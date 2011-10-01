@@ -27,7 +27,7 @@ has loader => (is => "rw");
 
 sub load {
     my ($self, $name, %args) = @_;
-    my $module = $name =~ /^\+/ ? $name : "TradeSpring::I::$name";
+    my $module = $name =~ s/^\+// ? $name : "TradeSpring::I::$name";
     $module->require or die $@;
 
     return $self->loader->load($module, %args)
