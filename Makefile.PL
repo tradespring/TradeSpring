@@ -23,6 +23,7 @@ requires 'List::AllUtils';
 requires 'UNIVERSAL::require';
 requires 'Graph';
 requires 'Data::Walk';
+requires 'YAML::Syck';
 
 requires 'Math::Random::MT';
 

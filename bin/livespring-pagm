@@ -71,7 +71,7 @@ $|++;
 
 my $cname = shift;
 
-my ($broker, $c) = $test_broker ? (TradeSpring::local_broker, undef)
+my ($broker, $c, $ep) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port,
                                                           daytrade => $daytrade);
 
@@ -139,8 +139,8 @@ sub _mount_accounts {
 if ($broker->can('app_loader')) {
     my $app = builder {
         #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
-        main->_mount_accounts({ $c->account->name => { _ready => $cv_ready, endpoint => $c->account->endpoint  } })
-    }->to_app;
+        main->_mount_accounts({ $c->{account} => { _ready => $cv_ready, endpoint => $ep  } })
+    };
 
     $broker->app_loader($app, __FILE__, $port);
 }

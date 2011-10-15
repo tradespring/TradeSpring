@@ -9,6 +9,7 @@ use Try::Tiny;
 use Finance::GeniusTrader::Eval;
 use Finance::GeniusTrader::Tools qw(:conf :timeframe);
 use Finance::GeniusTrader::DateTime;
+use YAML::Syck;
 
 use TradeSpring::Broker::Local;
 sub local_broker {
@@ -43,43 +44,47 @@ our $Config;
 sub jfo_broker {
     eval {
         require TradeSpring::Broker::JFO;
-        require JFO::Config;
+        require TradeSpring::Broker::JFO::EndPoint;
     } or die 'jfo required';
 
     my $cname = shift;
     my $port = shift;
     my %args = @_;
-    $Config ||= JFO::Config->load('config.yml') or die;
+    $Config ||= YAML::Syck::LoadFile('config.yml') or die "Can't load config.yml";
     my $contract = Finance::TW::TAIFEX->new->product('TX');
     my $now = DateTime->now;
     my $near = $contract->_near_term($now);
 
-    my $c = $Config->{commodities}{$cname} or die ;
+    my $c = $Config->{commodities}{$cname} or die "$cname not found in config";
 
-    my $endpoint = $c->account->endpoint;
-    my $address = Net::Address::IP::Local->connected_to(URI->new($endpoint->address)->host);
+    my $account = $Config->{accounts}{$c->{account}} or die "$c->{account} not found";
+    my $address = Net::Address::IP::Local->connected_to(URI->new($account->{endpoint}{address})->host);
 
-    my $uri = URI->new($Config->{notify_uri}."/".$c->account->name);
+    my $uri = URI->new($Config->{notify_uri}."/".$c->{account});
     $uri->host($address);
     $uri->port($port);
-    $logger->info("JFO endpoint: @{[ $endpoint->address ]}, notification address: $uri");
-    $endpoint->notify_uri($uri->as_string);
+
+    my $ep = TradeSpring::Broker::JFO::EndPoint->new({
+        address => $account->{endpoint}{address},
+        notify_uri => $uri->as_string });
+
+    $logger->info("JFO endpoint: @{[ $ep->address ]}, notification address: @{[ $ep->notify_uri ]}");
 
     my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
 
     my $broker = TradeSpring::Broker::JFO->new_with_traits
-        ( endpoint => $endpoint,
+        ( endpoint => $ep,
           params => {
               type => 'Futures',
-              exchange => $c->exchange,
-              code => $c->code,
+              exchange => $c->{exchange},
+              code => $c->{code},
               year => $near->year, month => $near->month,
           },
           traits => $traits,
           $args{daytrade} ? (position_effect_open => '') : (),
       );
     $logger->info("JFO broker created: ".join(' ', @$traits));
-    return ($broker, $c);
+    return ($broker, $c, $ep);
 }
 
 sub load_calc {
