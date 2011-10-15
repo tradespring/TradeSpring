@@ -4,7 +4,7 @@ all_from 'lib/TradeSpring.pm';
 readme_from 'lib/TradeSpring.pm';
 build_requires 'Test::More';
 auto_include_deps;
-author_tests('xt');
+extra_tests;
 
 requires 'Term::ANSIScreen';
 requires 'MooseX::Log::Log4perl';
