@@ -11,6 +11,20 @@ requires 'low';
 
 has direction => (is => "rw", isa => "Int");
 
+method for_directions($code) {
+    for my $dir (-1, 1) {
+        my $ret = $self->with_direction($dir, $code);
+        if (defined $ret) {
+            return $ret;
+        }
+    }
+}
+
+method with_direction($dir, $code) {
+    local $self->{direction} = $dir;
+    $code->();
+}
+
 method mk_directional_method($pkg: $name, $long_name, $short_name, $is_function) {
     my ($long, $short) = map { ref($_) eq 'CODE' ? $_ : $pkg->can($_) }
 #                                   || die "method $_ not defined for diretional method $name of $pkg" }
