@@ -118,7 +118,7 @@ sub load_ps {
 }
 
 sub load_strategy {
-    my ($name, $calc, $broker, $fh, $load_day_from_db) = @_;
+    my ($name, $calc, $broker, $fh, $load_day_from_db, $range) = @_;
     $fh ||= \*STDOUT;
     try { eval $name->meta }
     catch {
@@ -126,7 +126,7 @@ sub load_strategy {
     };
     $name->init;
 
-    my @args = (broker => $broker);
+    my @args = (broker => $broker, range => $range);
 
     my $meta = Moose::Meta::Class->create_anon_class(
         superclasses => [$name],
