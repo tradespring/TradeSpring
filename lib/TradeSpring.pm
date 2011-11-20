@@ -325,13 +325,21 @@ sub run_tick_fitf {
             fitf_store($date)) or die;
     }
 
-    my $start = $Strp_time->parse_datetime($daytrade->date($daytrade->i-1))->epoch;
-    my $end =   $Strp_time->parse_datetime($daytrade->date)->epoch;
 
+    my ($start, $end);
+    if ($daytrade->calc->prices->timeframe == $Finance::GeniusTrader::DateTime::DAY) {
+        $start = $fitf->header->{start}[0];
+        $end = $fitf->header->{end}[0];
+    }
+    else {
+        $start = $Strp_time->parse_datetime($daytrade->date($daytrade->i-1))->epoch;
+        $end =   $Strp_time->parse_datetime($daytrade->date)->epoch;
+    }
+
+    warn "$start, $end";
     my $start_b = $fitf->bar_at($start);
     my $end_b = $fitf->bar_at($end);
 
-    my $date_base = $date->epoch;
     my $ymd = $date->ymd;
     my $last_price;
     my $last_time;
