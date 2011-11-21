@@ -166,6 +166,9 @@ sub load_strategy {
              sort keys %{$name->attrs}).$/
                  if $strategy->report_header;
 
+    my ($first, $last) = @{$range || []};
+    $strategy->load((defined $first ? $first-1 : $calc->prices->count-1),
+                    $first, $last);
 
     return $strategy;
 }

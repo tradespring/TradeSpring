@@ -52,6 +52,9 @@ method BUILD {
     }
 }
 
+method load($prev, $first, $last) {
+}
+
 method get_position_qty($r) {
     return $self->position_qty unless $self->ps;
 
