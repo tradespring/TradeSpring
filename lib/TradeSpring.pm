@@ -393,10 +393,12 @@ sub live_handler {
             $ag_channel = $msg->{ag_channel}.$tf;
             my $end = $msg->{session_end};
             if ($end > AnyEvent->time) {
-                AnyEvent->timer( after => $end - AnyEvent->time,
-                                 cb => sub {
-                                     $strategy->end;
-                                 });
+                my $w; $w = AnyEvent->timer(
+                    after => $end - AnyEvent->time,
+                    cb => sub {
+                        $strategy->end;
+                        undef $w;
+                    });
             }
         }
         elsif ($msg->{type} eq 'history') {
