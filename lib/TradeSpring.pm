@@ -46,6 +46,7 @@ sub jfo_broker {
         require TradeSpring::Broker::JFO;
         require TradeSpring::Broker::JFO::EndPoint;
     } or die 'jfo required';
+    require Finance::TW::TAIFEX;
 
     my $cname = shift;
     my $port = shift;
