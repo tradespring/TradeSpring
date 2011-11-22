@@ -24,6 +24,7 @@ requires 'UNIVERSAL::require';
 requires 'Graph';
 requires 'Data::Walk';
 requires 'YAML::Syck';
+requires 'FSA::Rules';
 
 requires 'Math::Random::MT';
 
