@@ -34,12 +34,14 @@ my $default_stp = 0.01;
 my $cnt = 150;
 my $iteration = 10000;
 my $initial = 1400;
+my $cost = 3;
 
 my $ps_store;
 my $ps_class = 'TradeSpring::PS::MarketMoney';
 
 my $init = Finance::GeniusTrader::CLI::init(
     'cnt=i' => \$cnt,
+    'cost=s' => \$cost,
     'iteration=i' => \$iteration,
     'initial=i' => \$initial,
     'default_stp=s' => \$default_stp,
@@ -65,10 +67,8 @@ my $ps = TradeSpring::load_ps($ps_class, $ps_store);
 my $r = $mc->master_record;
 my $n = $#{$r};
 use Math::Random::MT;
-use Math::Random::ISAAC;
 my $rand = Math::Random::MT->new($$, time);
 
-my $cost = 3;
 my @wlv = (0.25, 0.5, 0.75, 0.85, 0.9, 0.95);
 my @elv = (1, 1.2, 1.3, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 10, 15, 20);
 
