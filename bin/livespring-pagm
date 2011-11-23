@@ -74,24 +74,20 @@ my $cname = shift;
 my ($broker, $c, $ep) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port,
                                                           daytrade => $daytrade);
+my $ready_cv = AE::cv;
+my $init_cb = sub {
+    return unless $c;
+    $ready_cv->send(1);
+    my $w; $w = AnyEvent->timer( after => 30,
+                                 cb => sub {
+                                     $logger->fatal("broker init timeout");
+                                     undef $w;
+                                     $quit->send(-1);
+                                 });
+};
 
-my $handler = TradeSpring::live_handler($pagm, $client, $myself, $code, $tf,
-                                        $logger, $strategy_name, $broker, $daytrade);
-
-my $w; $w = AnyEvent->timer( after => 30,
-                             cb => sub {
-                                 $logger->fatal("broker init timeout");
-                                 undef $w;
-                                 $quit->send(-1);
-                             });
-my $cv_ready = AE::cv(
-    sub {
-        undef $w;
-        $client->poll($handler);
-        $pagm->publish({ type => 'pagm.session', code => $code, reply => $myself->name });
-    });
-
-$cv_ready->send(1) unless $c;
+TradeSpring::livespring($pagm, $client, $myself, $code, $tf,
+                        $logger, $strategy_name, $broker, $daytrade, $init_cb);
 
 # XXX: refactor into broker::jfo loader
 use Plack::Builder;
@@ -102,16 +98,16 @@ sub _mount_accounts {
         my $account = $accounts->{$a};
 
         my $w; $w = AnyEvent->timer
-            ( after => 5,
-              interval => 60,
+            ( interval => 60,
               cb => sub {
-                  $w;
                   my $endpoint = $account->{endpoint};
+                  return unless $ready_cv->ready;
                   $endpoint->jsonrpc_call( 'Ping', { cb => $endpoint->notify_uri.'_' },
                                            cb => sub { $account->{endpoint_seen} = AnyEvent->now },
                                            on_fail => sub { $account->{uk} = undef;
                                                             $logger->error("endpoint not responding: ".$_[0]);
                                                         });
+                  return $w;
               });
 
         mount '/notify/'.$a.'_' => sub {
@@ -139,7 +135,7 @@ sub _mount_accounts {
 if ($broker->can('app_loader')) {
     my $app = builder {
         #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
-        main->_mount_accounts({ $c->{account} => { _ready => $cv_ready, endpoint => $ep  } })
+        main->_mount_accounts({ $c->{account} => { endpoint => $ep  } })
     };
 
     $broker->app_loader($app, __FILE__, $port);

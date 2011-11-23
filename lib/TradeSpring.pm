@@ -376,8 +376,40 @@ sub fitf_store {
 
 use Finance::GeniusTrader::Calculator;
 
+sub livespring {
+    my ($pagm, $client, $myself, $code, $tf,
+        $logger, $strategy_name, $broker, $daytrade, $init_cb) = @_;
+    my $session_ready = AE::cv;
+
+    my $session_cb = sub {
+        my $msg = shift;
+        my $start = $msg->{session_start};
+        if ($init_cb) {
+            if ($start - 450 > AnyEvent->time) {
+                my $w; $w = AnyEvent->timer(
+                    after => $start - 450 - AnyEvent->time,
+                    cb => sub {
+                        $init_cb->($msg);
+                        undef $w;
+                    });
+            }
+            else {
+                $init_cb->($msg);
+            }
+        }
+    };
+    $client->poll(live_handler($pagm, $client, $myself, $code, $tf,
+                               $logger, $strategy_name, $broker, $daytrade, $session_cb));
+
+    $pagm->publish({ type => 'pagm.session',
+                     code => $code,
+                     reply => $myself->name });
+}
+
+use Term::ANSIScreen qw(:color :screen);
+
 sub live_handler {
-    my ($pagm, $client, $myself, $code, $tf, $logger, $strategy_name, $broker, $daytrade) = @_;
+    my ($pagm, $client, $myself, $code, $tf, $logger, $strategy_name, $broker, $daytrade, $session_cb) = @_;
     my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
 
     my $calc;
@@ -385,7 +417,6 @@ sub live_handler {
     my $strategy;
     sub {
         my $msg = shift;
-        no warnings 'uninitialized';
         if ($msg->{type} eq 'pagm.session') {
             $pagm->publish({type => 'pagm.history', code => $code,
                             timeframe => $tf, count => 300,
@@ -401,6 +432,7 @@ sub live_handler {
                         undef $w;
                     });
             }
+            $session_cb->($msg);
         }
         elsif ($msg->{type} eq 'history') {
             my $prices = $msg->{prices};
@@ -436,7 +468,7 @@ sub live_handler {
             next unless $calc;
             my $prices = $msg->{data};
 
-            use Term::ANSIScreen qw(:color :screen);
+            no warnings 'uninitialized';
             print clline;
             print (color 'white');
             print $prices->[$DATE].' = ';
@@ -454,6 +486,7 @@ sub live_handler {
             return unless $calc;
             my $time = $msg->{time};
 
+            no warnings 'uninitialized';
             print clline;
             print (color 'white');
             print $time.' = ';
@@ -468,7 +501,7 @@ sub live_handler {
             $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
         }
         return 1;
-    }
+    };
 }
 
 1;
