@@ -340,7 +340,6 @@ sub run_tick_fitf {
         $end =   $Strp_time->parse_datetime($daytrade->date)->epoch;
     }
 
-    warn "$start, $end";
     my $start_b = $fitf->bar_at($start);
     my $end_b = $fitf->bar_at($end);
 
