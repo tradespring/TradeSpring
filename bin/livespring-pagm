@@ -79,7 +79,7 @@ my $broker_cv = AE::cv;
 my $broker_check;
 my $init_cb = sub {
     return unless $c;
-    $broker_check = AnyEvent->timer( after => 30,
+    $broker_check = AnyEvent->timer( after => 90,
                                  cb => sub {
                                      $logger->fatal("broker init timeout");
                                      undef $broker_check;
