@@ -75,16 +75,19 @@ my ($broker, $c, $ep) = $test_broker ? (TradeSpring::local_broker, undef)
                                 : TradeSpring::jfo_broker($cname, $port,
                                                           daytrade => $daytrade);
 my $ready_cv = AE::cv;
+my $broker_cv = AE::cv;
+my $broker_check;
 my $init_cb = sub {
     return unless $c;
-    $ready_cv->send(1);
-    my $w; $w = AnyEvent->timer( after => 30,
+    $broker_check = AnyEvent->timer( after => 30,
                                  cb => sub {
                                      $logger->fatal("broker init timeout");
-                                     undef $w;
+                                     undef $broker_check;
                                      $quit->send(-1);
                                  });
+    $ready_cv->send(1);
 };
+$broker_cv->cb(sub { undef $broker_check });
 
 TradeSpring::livespring($pagm, $client, $myself, $code, $tf,
                         $logger, $strategy_name, $broker, $daytrade, $init_cb);
@@ -135,7 +138,7 @@ sub _mount_accounts {
 if ($broker->can('app_loader')) {
     my $app = builder {
         #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
-        main->_mount_accounts({ $c->{account} => { endpoint => $ep  } })
+        main->_mount_accounts({ $c->{account} => { _ready => $broker_cv, endpoint => $ep  } })
     };
 
     $broker->app_loader($app, __FILE__, $port);
