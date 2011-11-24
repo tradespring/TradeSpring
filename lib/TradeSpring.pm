@@ -416,7 +416,26 @@ sub live_handler {
     my $strategy;
     sub {
         my $msg = shift;
-        if ($msg->{type} eq 'pagm.session') {
+
+        if (!exists $msg->{type} && $msg->{price}) { # tick
+            return unless $calc;
+            my $time = $msg->{time};
+
+            {
+                no warnings 'uninitialized';
+                local ($^W) = 0;
+                print clline;
+                print (color 'white');
+                print $time.' = ';
+                my $pp = $calc->prices->at($calc->prices->count-1);
+                my $c = $msg->{price}> $pp->[$CLOSE] ? 'red' : 'green';
+                print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
+                print "\r";
+            }
+
+            $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
+        }
+        elsif ($msg->{type} eq 'pagm.session') {
             $pagm->publish({type => 'pagm.history', code => $code,
                             timeframe => $tf, count => 300,
                             reply => $myself->name});
@@ -467,34 +486,23 @@ sub live_handler {
             next unless $calc;
             my $prices = $msg->{data};
 
-            no warnings 'uninitialized';
-            print clline;
-            print (color 'white');
-            print $prices->[$DATE].' = ';
-            print color $prices->[$CLOSE] > $prices->[$OPEN] ? 'red' : 'green';
-            print join('',map { sprintf("%5d", $_) } @{$prices}[0..3]);
-            printf (" V: %6d", $prices->[4]);
-            print color 'reset';
-            print $/;
+            {
+                no warnings 'uninitialized';
+                local ($^W) = 0;
+
+                print clline;
+                print (color 'white');
+                print $prices->[$DATE].' = ';
+                print color $prices->[$CLOSE] > $prices->[$OPEN] ? 'red' : 'green';
+                print join('',map { sprintf("%5d", $_) } @{$prices}[0..3]);
+                printf (" V: %6d", $prices->[4]);
+                print color 'reset';
+                print $/;
+            }
 
             $calc->prices->add_prices($prices);
             $strategy->i($calc->prices->count-1);
             $strategy->run();
-        }
-        elsif ($msg->{price}) { # tick
-            return unless $calc;
-            my $time = $msg->{time};
-
-            no warnings 'uninitialized';
-            print clline;
-            print (color 'white');
-            print $time.' = ';
-            my $pp = $calc->prices->at($calc->prices->count-1);
-            my $c = $msg->{price}> $pp->[$CLOSE] ? 'red' : 'green';
-            print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
-            print "\r";
-
-            $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
         }
         else {
             $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
