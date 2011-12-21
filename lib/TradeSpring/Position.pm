@@ -46,7 +46,7 @@ method _submit_exit_order($type, $order) {
             #   - stop strategy new positions
             #   - check submitted order
             my ($type, $msg) = @_;
-            $self->log->error("order failed: $type $msg");
+            $self->log->fatal("order failed: $type $msg");
         },
         on_summary => sub {
             # XXX: consolidate tp/stp orders's summary for actual on_exit price
@@ -99,7 +99,7 @@ method create ($entry, $stp, $tp) {
                  #   - stop strategy new positions
                  #   - check submitted order
                  my ($type, $msg) = @_;
-                 $self->log->error("order failed: $type $msg");
+                 $self->log->fatal("order failed: $type $msg");
              },
              on_summary => sub {
                  if ($_[0]) {
