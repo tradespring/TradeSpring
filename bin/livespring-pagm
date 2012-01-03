@@ -77,7 +77,7 @@ my $broker = $test_broker ? (TradeSpring::local_broker, undef)
                           : TradeSpring::jfo_broker($cname, $keepaddress ? undef : $port,
                                                     daytrade => $daytrade);
 my $has_jfo = TradeSpring::Broker::JFO->can('jfo_instances') &&
-    scalar keys TradeSpring::Broker::JFO->jfo_instances;
+    scalar keys %{ TradeSpring::Broker::JFO->jfo_instances };
 my $ready_cv = AE::cv;
 my $init_cb = sub {
     $ready_cv->send(1);
