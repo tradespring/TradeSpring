@@ -6,6 +6,9 @@ with 'TradeSpring::MasterSignal';
 
 has calc => (is => "rw");
 
+sub load {
+}
+
 sub init {
 
 }
