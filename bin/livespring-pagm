@@ -19,11 +19,13 @@ my $test_broker;
 my $logconf;
 my $daytrade;
 my $localpagm;
+my $keepaddress;
 
 GetOptions ("test"      => \$test_broker,
             "localpagm" => \$localpagm,
             "logconf=s" => \$logconf,
             "daytrade"  => \$daytrade,
+            "keepaddress" => \$keepaddress,
             "port=i"    => \$port,
         ) or die;
 
@@ -71,77 +73,30 @@ $|++;
 
 my $cname = shift;
 
-my ($broker, $c, $ep) = $test_broker ? (TradeSpring::local_broker, undef)
-                                : TradeSpring::jfo_broker($cname, $port,
-                                                          daytrade => $daytrade);
+my $broker = $test_broker ? (TradeSpring::local_broker, undef)
+                          : TradeSpring::jfo_broker($cname, $keepaddress ? undef : $port,
+                                                    daytrade => $daytrade);
+my $has_jfo = TradeSpring::Broker::JFO->can('jfo_instances') &&
+    scalar keys TradeSpring::Broker::JFO->jfo_instances;
 my $ready_cv = AE::cv;
-my $broker_cv = AE::cv;
-my $broker_check;
 my $init_cb = sub {
-    return unless $c;
-    $broker_check = AnyEvent->timer( after => 90,
-                                 cb => sub {
-                                     $logger->fatal("broker init timeout");
-                                     undef $broker_check;
-                                     $quit->send(-1);
-                                 });
     $ready_cv->send(1);
 };
-$broker_cv->cb(sub { undef $broker_check });
 
 TradeSpring::livespring($pagm, $client, $myself, $code, $tf,
                         $logger, $strategy_name, $broker, $daytrade, $init_cb);
 
-# XXX: refactor into broker::jfo loader
-use Plack::Builder;
-sub _mount_accounts {
-    my ($class, $accounts) = @_;
-
-    for my $a (keys %$accounts) {
-        my $account = $accounts->{$a};
-
-        my $w; $w = AnyEvent->timer
-            ( interval => 60,
-              cb => sub {
-                  my $endpoint = $account->{endpoint};
-                  return unless $ready_cv->ready;
-                  $endpoint->jsonrpc_call( 'Ping', { cb => $endpoint->notify_uri.'_' },
-                                           cb => sub { $account->{endpoint_seen} = AnyEvent->now },
-                                           on_fail => sub { $account->{uk} = undef;
-                                                            $logger->error("endpoint not responding: ".$_[0]);
-                                                        });
-                  return $w;
-              });
-
-        mount '/notify/'.$a.'_' => sub {
-            my $env = shift;
-            my $req = Plack::Request->new($env);
-            my $v = $req->parameters->mixed;
-            if ($v->{notify} eq 'heartbeat') {
-                $account->{_ready}->send if $account->{_ready};
-                unless ( $account->{uk} = $v->{uk} ) {
-                    $logger->error("endpoint not logged in");
-                }
-            }
-            else {
-                $logger->warn("unknown heartbeat response ".Dumper($v));use Data::Dumper;
-            }
-            return [200, ['Content-Type' => 'text/plain'], ['ok']];
-        };
-
-        mount '/notify/'.$a => TradeSpring::Broker::JFO->psgi_app;
-    }
-    mount '/' => sub { [200, ['Content-Type' => 'text/plain'], ['ok']] };
-};
-
-# XXX: WSJ-like init
-if ($broker->can('app_loader')) {
+if ($has_jfo) {
+    use Plack::Builder;
     my $app = builder {
-        #    mount '/notify' => TradeSpring::Broker::JFO->psgi_app;
-        main->_mount_accounts({ $c->{account} => { _ready => $broker_cv, endpoint => $ep  } })
+        TradeSpring::Broker::JFO->mount_instances({ ready_cv => $ready_cv,
+                                                    check => 90 });
+        mount '/' => sub {
+            return [404, ['Conetent-Type', 'text/plain'], ['not found']];
+        };
     };
 
-    $broker->app_loader($app, __FILE__, $port);
+    TradeSpring::Broker::JFO->app_loader($app, __FILE__, $port);
 }
 
 exit $quit->recv;

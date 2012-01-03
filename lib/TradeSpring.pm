@@ -41,29 +41,27 @@ sub init_logging {
 }
 
 our $Config;
-sub jfo_broker {
+
+sub raw_jfo_broker_args {
     eval {
         require TradeSpring::Broker::JFO;
         require TradeSpring::Broker::JFO::EndPoint;
-    } or die 'jfo required';
+    } or die 'jfo required '.$@;
     require Finance::TW::TAIFEX;
 
-    my $cname = shift;
-    my $port = shift;
-    my %args = @_;
-    $Config ||= YAML::Syck::LoadFile('config.yml') or die "Can't load config.yml";
+    my ($c, $port) = @_;
     my $contract = Finance::TW::TAIFEX->new->product('TX');
     my $now = DateTime->now;
     my $near = $contract->_near_term($now);
 
-    my $c = $Config->{commodities}{$cname} or die "$cname not found in config";
-
     my $account = $Config->{accounts}{$c->{account}} or die "$c->{account} not found";
-    my $address = Net::Address::IP::Local->connected_to(URI->new($account->{endpoint}{address})->host);
-
     my $uri = URI->new($Config->{notify_uri}."/".$c->{account});
-    $uri->host($address);
-    $uri->port($port);
+    if ($port) {
+        my $address = Net::Address::IP::Local->connected_to(URI->new($account->{endpoint}{address})->host);
+
+        $uri->host($address);
+        $uri->port($port);
+    }
 
     my $ep = TradeSpring::Broker::JFO::EndPoint->new({
         address => $account->{endpoint}{address},
@@ -71,21 +69,51 @@ sub jfo_broker {
 
     $logger->info("JFO endpoint: @{[ $ep->address ]}, notification address: @{[ $ep->notify_uri ]}");
 
+    my $raw_args = {
+        name => $c->{account},
+        endpoint => $ep,
+        params => {
+            type => 'Futures',
+            exchange => $c->{exchange},
+            code => $c->{code},
+            year => $near->year, month => $near->month,
+        }
+    };
+    return $raw_args;
+}
+
+sub jfo_broker {
+    my ($cname, $port, %args) = @_;
+    $Config ||= YAML::Syck::LoadFile('config.yml') or die "Can't load config.yml";
+    my $c = $Config->{commodities}{$cname} or die "$cname not found in config";
     my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
 
+    if ($c->{backends}) {
+        require TradeSpring::Broker::Partition;
+        my $backends = [map {
+            { %$_,
+               broker => TradeSpring::Broker::JFO->new_with_traits(
+                   %{raw_jfo_broker_args($Config->{commodities}{$_->{broker}}, $port)},
+                   traits => ['Position'],
+                   $args{daytrade} ? (position_effect_open => '') : ())
+           }
+        } @{$c->{backends}}];
+        my $broker = TradeSpring::Broker::Partition->new_with_traits
+            ( backends => $backends,
+              traits => $traits,
+              $args{daytrade} ? (position_effect_open => '') : (),
+          );
+        return $broker;
+    }
+
+    my $raw_args = raw_jfo_broker_args($c, $port);
     my $broker = TradeSpring::Broker::JFO->new_with_traits
-        ( endpoint => $ep,
-          params => {
-              type => 'Futures',
-              exchange => $c->{exchange},
-              code => $c->{code},
-              year => $near->year, month => $near->month,
-          },
+        ( %$raw_args,
           traits => $traits,
           $args{daytrade} ? (position_effect_open => '') : (),
       );
     $logger->info("JFO broker created: ".join(' ', @$traits));
-    return ($broker, $c, $ep);
+    return $broker;
 }
 
 sub load_calc {
