@@ -73,7 +73,7 @@ $|++;
 
 my $cname = shift;
 
-my $broker = $test_broker ? (TradeSpring::local_broker, undef)
+my $broker = $test_broker ? TradeSpring::local_broker()
                           : TradeSpring::jfo_broker($cname, $keepaddress ? undef : $port,
                                                     daytrade => $daytrade);
 my $has_jfo = TradeSpring::Broker::JFO->can('jfo_instances') &&
