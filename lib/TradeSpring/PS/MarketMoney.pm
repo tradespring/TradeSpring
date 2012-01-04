@@ -22,7 +22,7 @@ has maxqty => (is => "rw", isa => "Int", default => sub { 9999 });
 
 method info {
     sprintf 'MarketMoney(base risk: %5.2f%%, mm risk: %5.2f%%, max qty: %d): current equity: %d, base: %d',
-        $self->base_risk, $self->mm_risk, $self->maxqty, $self->equity, $self->base;
+        $self->base_risk * 100 , $self->mm_risk * 100, $self->maxqty, $self->equity, $self->base;
 }
 
 method reset_base($e) {
