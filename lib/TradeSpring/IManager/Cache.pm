@@ -116,7 +116,8 @@ method populate_cache($prefix, $object, $end) {
     my ($start_d, $end_d) = map { $calc->prices->at($_)->[$DATE] } 0, $end;
     my ($cache_start, $cache_end) = (0, $end);
 
-    my $i_version = $self->VERSION || '0.0';
+    my $i_version = $object->version || '0.0';
+
     if (%$info) {
         if ($info->{version} && $info->{version} != TSCACHE_VERSION) {
             $self->log->warn("version mismatch, discard");

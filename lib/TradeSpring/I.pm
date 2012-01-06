@@ -37,6 +37,13 @@ sub load {
 
 }
 
+sub version {
+    my $self = shift;
+    my $name = $self->meta->name;
+    $name = ($self->meta->superclasses)[0] if $name =~ /__ANON__/;
+    $name->VERSION;
+}
+
 sub _build_as_string {
     my $self = shift;
     my $name = $self->meta->name;
