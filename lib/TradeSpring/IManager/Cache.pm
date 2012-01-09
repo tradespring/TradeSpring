@@ -146,6 +146,12 @@ method populate_cache($prefix, $object, $end) {
     }
 
     unless (%$info) {
+        $self->log->info("calculation required");
+        my @deps = $self->get_all_depended($object);
+        pop @deps;
+        for my $dep (@deps) {
+            $self->get_values($dep, $cache_start, $cache_end);
+        }
         $self->calculate_interval($object, $cache_start, $cache_end);
         $object->{span} ||= Set::IntSpan->new([]);
         $object->{span}->U([[$cache_start, $cache_end]]);

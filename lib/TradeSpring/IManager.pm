@@ -15,16 +15,19 @@ has _cached_order => (is => "rw", isa => "ArrayRef", clearer => 'clear_order');
 
 method order {
     unless ($self->_cached_order) {
-        my $g = Graph->new;
-        for (values %{ $self->indicators }) {
-            $self->expand_tree($g, $_);
-        }
-
-        my @order = Graph::Traversal::DFS->new($g)->dfs;
+        my @order = $self->get_all_depended(values %{ $self->indicators });
         $self->_cached_order(\@order);
     }
 
     return $self->_cached_order;
+}
+
+method get_all_depended {
+    my $g = Graph->new;
+    for (@_) {
+        $self->expand_tree($g, $_);
+    }
+    return Graph::Traversal::DFS->new($g)->dfs;
 }
 
 method load($module, %args) {
