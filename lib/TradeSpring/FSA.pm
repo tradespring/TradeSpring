@@ -52,6 +52,7 @@ method new_fsa($dir, $price, $qty, $stp_price) {
                               type => 'stp',
                               qty => $qty,
                           };
+                my $submit_i = $self->i;
                 my $id = $self->broker->register_order(
                     $order,
                     on_match => sub {
@@ -70,6 +71,9 @@ method new_fsa($dir, $price, $qty, $stp_price) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
                             $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
+                            $self->on_position_entered($state);
+                            $self->fill_position($dir, $o->{order}{price}, $_[0], $submit_i,
+                                                 $self->entry_annotation($state));
                             $state->notes(stp_price =>
                                               $o->{order}{price} * ( 1 - $self->initial_stp * $dir));
                             my $new = $state->machine->try_switch();
@@ -134,13 +138,18 @@ method _submit_exit_order($type, $order, $state) {
             my $o = $self->broker->get_order($id);
             if ($_[0]) {
                 $self->log->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
-                $state->result($_[0]);
+                $self->fill_position($o->{order}{dir}, $o->{order}{price}, $_[0], $self->i, exit_type => $type, $self->exit_map($state));
+                $state->machine->curr_state->result($_[0]);
                 my $new = $state->machine->try_switch();
             }
         });
 
     return $id;
 }
+
+method on_position_entered($state) { return () }
+
+method exit_map($state) { return () }
 
 method load_from_state($state) {
     for my $entry (@$state) {
