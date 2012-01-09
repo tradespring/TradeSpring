@@ -113,6 +113,7 @@ method new_fsa($dir, $price, $qty, $stp_price) {
 
 method _submit_exit_order($type, $order, $state) {
     my $entry_id = $state->notes('order');
+    $order->{oca_group} = $entry_id;
     $state->notes('exit_id_map', {}) unless $state->notes('exit_id_map');
     my $exit_id_map = $state->notes('exit_id_map');
     my $id;
