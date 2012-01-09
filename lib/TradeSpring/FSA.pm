@@ -15,7 +15,7 @@ method load($prev, $first, $last) {
         try {
             my $state = LoadFile($f);
             if ($prev >= 0) {
-                die "state stamp mismatch"
+                die "state stamp mismatch $state->{date} vs ".$self->date($prev)
                     unless $state->{date} eq $self->date($prev);
             }
             $self->load_from_state($state->{fsa});
