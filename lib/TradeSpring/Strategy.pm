@@ -71,6 +71,8 @@ method new_position($entry, $stp, $tp, %args) {
 
 method frame_attrs { return }
 
+method entry_annotation { () }
+
 method fill_position($dir, $price, $qty, $submit_i, %attrs) {
     my $pos = $self->open_positions;
     my $cp = (sum map { $_->{dir} } @$pos) || 0;
