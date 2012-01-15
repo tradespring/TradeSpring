@@ -38,12 +38,14 @@ my $cnt = 150;
 my $iteration = 10000;
 my $initial = 1400;
 my $cost = 3;
+my $_maxqty = 64;
 
 my $ps_store;
 my $ps_class = 'TradeSpring::PS::MarketMoney';
 
 my $init = Finance::GeniusTrader::CLI::init(
     'cnt=i' => \$cnt,
+    'maxqty=i' => \$_maxqty,
     'cost=s' => \$cost,
     'iteration=i' => \$iteration,
     'initial=i' => \$initial,
@@ -206,7 +208,7 @@ sub res_for_seq {
         my $entry = $r->[$_];
         my $r = $entry->{r} || int($entry->{open_price} * $default_stp);
         my $rm = ($entry->{profit} - $cost) / $r;
-        my $qty = min($cb_qty->($r), 64);
+        my $qty = min($cb_qty->($r), $_maxqty);
         unless ($qty) {
             ++$rejected;
             next;
