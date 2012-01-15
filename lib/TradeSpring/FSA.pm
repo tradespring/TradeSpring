@@ -71,14 +71,14 @@ method new_fsa($dir, $price, $qty, $stp_price) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
                             $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
-                            $self->on_position_entered($state);
-                            $self->fill_position($dir, $o->{order}{price}, $_[0], $submit_i,
-                                                 $self->entry_annotation($state));
+                            $state->notes('submit_i', $submit_i);
+                            $state->notes(entry_price =>$o->{order}{price});
                             $state->notes(stp_price =>
                                               $o->{order}{price} * ( 1 - $self->initial_stp * $dir));
                             my $new = $state->machine->try_switch();
                         }
                     });
+                $state->notes(order_annotation => $self->order_annotation);
                 $state->notes(order => $id);
                 $state->notes(stp_price => $stp_price);
             },
@@ -90,6 +90,13 @@ method new_fsa($dir, $price, $qty, $stp_price) {
             do => sub {
                 $self->direction($dir);
                 my $state = shift;
+
+                $self->on_position_entered($state);
+                $self->fill_position($state->notes('dir'), $state->notes('entry_price'),
+                                     $state->notes('qty'), $state->notes('submit_i'),
+                                     %{ $state->notes('order_annotation') },
+                                     %{ $self->entry_annotation($state) });
+
                 my $stp_price = $state->notes('stp_price');
                 my $qty = $state->notes('qty');
                 $self->_submit_exit_order('stp', {
