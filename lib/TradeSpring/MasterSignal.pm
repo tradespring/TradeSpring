@@ -37,22 +37,36 @@ sub _build_master_record {
 
 sub master_entry {
     my $self = shift;
-    $self->master_record->[$self->master_idx]->{open_price};
+    $self->master_detail->{open_price};
+}
+
+sub master_detail {
+    my $self = shift;
+    $self->master_record->[$self->master_idx]
 }
 
 sub master {
     my ($self, $i) = @_;
     $i //= $self->i;
+    while ($self->master_idx <= $#{$self->master_record}) {
+        if ($i > $self->mater_detail->{close_i}) {
+            $self->{master_idx}++;
+        }
+        else {
+            last;
+        }
+    }
     return if $self->master_idx > $#{$self->master_record};
-    my $r = $self->master_record->[$self->master_idx];
+
+    my $r = $self->master_detail;
     if ($i < $r->{open_i}) {
         return 0;
     }
     else {
+#        $self->debug($self->date($r->{open_i}).' '.$r->{close_i}. ' '.$i);
         if ($i < $r->{close_i}) {
             return $r->{dir};
         }
-        ++$self->{master_idx};
     }
     return 0;
 }
