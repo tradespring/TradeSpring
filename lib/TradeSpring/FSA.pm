@@ -30,6 +30,17 @@ method load($prev, $first, $last) {
     }
 }
 
+around attrs => sub {
+    my ($next, $self) = @_;
+    +{ %{ $self->$next() }, (
+        _mk_cpos_attr(qw(exit_type r)),
+    )}
+};
+
+sub _mk_cpos_attr {
+    map { $_ => method($cpos) { $cpos->{$_} } } @_;
+}
+
 method dump_state($state) {
     for (@$state) {
         delete $_->{notes}{exit_id_map};
@@ -40,18 +51,38 @@ method dump_state($state) {
 }
 
 method new_fsa($dir, $price, $qty, $stp_price) {
+    my $order = { dir => $dir,
+                  price => $price,
+                  type => 'stp',
+                  qty => $qty,
+              };
+
+    $self->new_fsa2(
+        { submit => {
+            do => sub {
+                my $state = shift;
+                $state->notes('order', $order);
+            },
+            rules => [ pending => sub { 1 } ],
+        }
+      },
+        $stp_price,
+    );
+}
+
+method new_fsa2($conditions, $stp_price, $on_enter) {
     my $fsa = FSA::Rules->new(
+        %$conditions,
         pending => {
             do => sub {
                 my $state = shift;
+                my $order = $state->notes('order');#, undef);
+                $state->notes('order', undef);
+                my $dir = $order->{dir};
                 $state->notes('dir', $dir);
-                $state->notes('price', $price);
-                $state->notes('qty', $qty);
-                my $order = { dir => $dir,
-                              price => $price,
-                              type => 'stp',
-                              qty => $qty,
-                          };
+                $state->notes('qty', $order->{qty});
+                $state->notes('order_price', $order->{price}) if $order->{price};
+
                 my $submit_i = $self->i;
                 my $id = $self->broker->register_order(
                     $order,
@@ -61,7 +92,7 @@ method new_fsa($dir, $price, $qty, $stp_price) {
                         $state->machine->{position_entered} += $qty;
                     },
                     on_ready => sub {
-                        $self->debug("order submitted: ($dir): $price");
+                        $self->debug("order submitted: ($dir): $order->{price}");
                     },
                     on_error => sub {
                     },
@@ -71,16 +102,21 @@ method new_fsa($dir, $price, $qty, $stp_price) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
                             $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
-                            $state->notes('submit_i', $submit_i);
+                            $state->notes(submit_i => $submit_i);
                             $state->notes(entry_price =>$o->{order}{price});
-                            $state->notes(stp_price =>
-                                              $o->{order}{price} * ( 1 - $self->initial_stp * $dir));
                             my $new = $state->machine->try_switch();
                         }
                     });
-                $state->notes(order_annotation => $self->order_annotation);
                 $state->notes(order => $id);
-                $state->notes(stp_price => $stp_price);
+                $state->notes(stp_price => $stp_price) if $stp_price;
+                my $default_stp = $state->notes('order_price') * ( 1 - $self->initial_stp * $dir);
+                my $stp = $state->notes('stp_price');
+                $state->notes(stp_price => $default_stp)
+                    if !$stp || $default_stp * $dir > $stp * $dir;
+
+                local $_;
+                $state->notes(order_annotation => $self->order_annotation($state));
+                return;
             },
             rules => [
                 'entered' => sub { shift->result }
@@ -88,13 +124,14 @@ method new_fsa($dir, $price, $qty, $stp_price) {
         },
         'entered' => {
             do => sub {
-                $self->direction($dir);
                 my $state = shift;
+                my $dir = $state->notes('dir');
+                $self->direction($dir);
 
                 $self->on_position_entered($state);
                 $self->fill_position($state->notes('dir'), $state->notes('entry_price'),
                                      $state->notes('qty'), $state->notes('submit_i'),
-                                     %{ $state->notes('order_annotation') },
+                                     %{ $state->notes('order_annotation') || {} },
                                      %{ $self->entry_annotation($state) });
 
                 my $stp_price = $state->notes('stp_price');
@@ -117,6 +154,19 @@ method new_fsa($dir, $price, $qty, $stp_price) {
     )
 }
 
+around order_annotation => sub {
+    my ($next, $self, $state) = @_;
+    my $ann = {};
+    if (my $stp = $state->notes('stp_price')) {
+        my $dir = $state->notes('dir');
+        my $p = $state->notes('order_price');
+        my $r = ($p - $stp) * $dir;
+        $ann = { r => $r };
+    }
+    +{ %{ $self->$next($state) }, %$ann };
+};
+
+method initial_stp { 0.005 };
 
 method _submit_exit_order($type, $order, $state) {
     my $entry_id = $state->notes('order');
