@@ -291,8 +291,8 @@ sub _order_effective {
     }
 
     if ($order->{price}) {
-        return $order->{price} <= $strategy->high &&
-               $order->{price} >= $strategy->low;
+        return $order->{dir} * ( $order->{dir} > 0 ? $strategy->low : $strategy->high)
+            <= $order->{price} * $order->{dir};
     }
 }
 
