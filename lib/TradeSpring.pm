@@ -406,7 +406,7 @@ use Finance::GeniusTrader::Calculator;
 
 sub livespring {
     my ($pagm, $client, $myself, $code, $tf,
-        $logger, $strategy_name, $broker, $daytrade, $init_cb) = @_;
+        $logger, $strategy_name, $broker, $daytrade, $init_cb, $loadcnt) = @_;
     my $session_ready = AE::cv;
 
     my $session_cb = sub {
@@ -427,7 +427,7 @@ sub livespring {
         }
     };
     $client->poll(live_handler($pagm, $client, $myself, $code, $tf,
-                               $logger, $strategy_name, $broker, $daytrade, $session_cb));
+                               $logger, $strategy_name, $broker, $daytrade, $session_cb, $loadcnt));
 
     $pagm->publish({ type => 'pagm.session',
                      code => $code,
@@ -437,7 +437,8 @@ sub livespring {
 use Term::ANSIScreen qw(:color :screen);
 
 sub live_handler {
-    my ($pagm, $client, $myself, $code, $tf, $logger, $strategy_name, $broker, $daytrade, $session_cb) = @_;
+    my ($pagm, $client, $myself, $code, $tf, $logger,
+        $strategy_name, $broker, $daytrade, $session_cb, $loadcnt) = @_;
     my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
 
     my $calc;
@@ -466,7 +467,7 @@ sub live_handler {
         }
         elsif ($msg->{type} eq 'pagm.session') {
             $pagm->publish({type => 'pagm.history', code => $code,
-                            timeframe => $tf, count => 300,
+                            timeframe => $tf, count => $loadcnt || 300,
                             reply => $myself->name});
             $tick_channel = $msg->{tick_channel};
             $ag_channel = $msg->{ag_channel}.$tf;

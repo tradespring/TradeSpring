@@ -20,11 +20,13 @@ my $logconf;
 my $daytrade;
 my $localpagm;
 my $keepaddress;
+my $loadcnt;
 
 GetOptions ("test"      => \$test_broker,
             "localpagm" => \$localpagm,
             "logconf=s" => \$logconf,
             "daytrade"  => \$daytrade,
+            "loadcnt=i" => \$loadcnt,
             "keepaddress" => \$keepaddress,
             "port=i"    => \$port,
         ) or die;
@@ -84,7 +86,7 @@ my $init_cb = sub {
 };
 
 TradeSpring::livespring($pagm, $client, $myself, $code, $tf,
-                        $logger, $strategy_name, $broker, $daytrade, $init_cb);
+                        $logger, $strategy_name, $broker, $daytrade, $init_cb, $loadcnt);
 
 if ($has_jfo) {
     use Plack::Builder;
