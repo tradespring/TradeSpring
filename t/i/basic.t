@@ -13,7 +13,7 @@ use File::Temp;
 my $file;
 BEGIN {
     unshift @INC, $FindBin::Bin;
-    my $dir = File::Spec->catdir($FindBin::Bin, '..', '..', 'xt',
+    my $dir = File::Spec->catdir($FindBin::Bin, '..', '..', 'xt', 'smoke',
                                  'gt');
     $file = File::Temp->new;
     my $db_path = $dir;
