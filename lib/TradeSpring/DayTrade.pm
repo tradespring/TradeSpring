@@ -30,7 +30,7 @@ before run => method {
         $self->dstart($self->i);
         $self->day_high( $self->highest_high );
         $self->day_low(  $self->lowest_low );
-        if ($self->meta->find_attribute_by_name('dcalc') && $self->i > 0) {
+        if ($self->meta->find_attribute_by_name('dcalc') && $self->i >= 0) {
             my ($last_day) = $self->date($self->i-1) =~ m/^([\d-]+)/;
 
             $self->dframe->i( $self->dcalc->prices->date($last_day) //
