@@ -2,26 +2,13 @@ package TradeSpring::BracketOrder;
 use Moose::Role;
 use Method::Signatures::Simple;
 
+with 'TradeSpring::OrderReport';
+
 has 'position' => (is => "rw", isa => "TradeSpring::Position", clearer => 'clear_position');
 
 before 'cleanup' => method {
     $self->clear_position;
 };
-
-has order_report => (is => "rw", isa => "Str");
-
-has order_report_fh => (
-    is => "rw",
-    lazy_build => 1
-);
-
-method _build_order_report_fh {
-    $self->order_report or return;
-
-    open my $fh, '>>', $self->order_report
-        or die "can't open @{[ $self->order_report ]} for write";
-    return $fh;
-}
 
 method pending_order {
     my $p = $self->position or return 0;
@@ -48,21 +35,6 @@ method update_order_price($type, $price, $cb) {
 
     $self->broker->update_order($id, $price,
                                 undef, $cb);
-}
-
-method format_order($order, $price, $qty) {
-    return unless $self->order_report_fh;
-    syswrite $self->order_report_fh,
-        join(',',
-             $self->date,
-             $order->{dir},
-             $qty,
-             $order->{price} || $self->broker->{last_price},
-             $price,
-             0, # triggering time
-             0, # submission time
-             AnyEvent->now, # report time
-         ).$/;
 }
 
 method new_bracket_order ($entry_order, $stp, $tp, %args) {

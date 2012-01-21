@@ -6,6 +6,7 @@ use methods;
 
 use YAML::Syck qw(LoadFile DumpFile);
 use FSA::Rules;
+with 'TradeSpring::OrderReport';
 
 has state_file => (is => "rw", isa => "Str");
 has fsa => (is => "rw", default => sub { [] });
@@ -101,6 +102,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                         if ($_[0]) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
+                            $self->format_order($o->{order}, $state->notes('order_price'), $_[0]);
                             $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                             $state->notes(submit_i => $submit_i);
                             $state->notes(entry_price =>$o->{order}{price});
@@ -195,6 +197,7 @@ method _submit_exit_order($type, $order, $state) {
         on_summary => sub {
             my $o = $self->broker->get_order($id);
             if ($_[0]) {
+                $self->format_order($o->{order}, $order->{price} || $self->broker->{last_price}, $_[0]);
                 $self->log->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                 $self->fill_position($o->{order}{dir}, $o->{order}{price}, $_[0], $self->i, exit_type => $type, $self->exit_map($state));
                 $state->machine->curr_state->result($_[0]);
