@@ -53,7 +53,7 @@ method get_qty($r) {
     my $risk = ($e * $self->base_risk + max(0, ($e - $self->base)) * $self->mm_risk);
     my $qty = int($risk / $r);
 
-    $self->log->info("risking $risk, qty = $qty / @{[ $self->maxqty]}")
+    $self->log->info(sprintf('risking %.2f / %.2f, qty = %d / %d', $risk, $r, $qty, $self->maxqty))
         if $self->log->is_info;
     return min($self->maxqty, $qty);
 }
