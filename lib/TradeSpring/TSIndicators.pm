@@ -20,6 +20,7 @@ sub _build_imanager {
     TradeSpring::IManager::Cache->new( frame => $self); #, indicator_traits => ['Strict'] );
 }
 
+sub BUILD {}
 after BUILD => method {
     my @attrs = grep {$_->does('TradeSpring::Meta::Attribute::Trait::TSIndicator') }
                       $self->meta->get_all_attributes;
