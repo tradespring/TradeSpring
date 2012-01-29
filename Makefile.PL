@@ -30,6 +30,8 @@ requires 'Math::Random::MT';
 
 requires 'Statistics::Basic';
 
+requires 'Finance::Instrument';
+
 test_requires 'Test::Log::Log4perl';
 
 WriteAll;
