@@ -17,7 +17,9 @@ has use_cache => (is => "rw", isa => "Bool");
 sub _build_imanager {
     my $self = shift;
     require TradeSpring::IManager::Cache;
-    TradeSpring::IManager::Cache->new( frame => $self); #, indicator_traits => ['Strict'] );
+    $self->use_cache
+        ? TradeSpring::IManager::Cache->new( frame => $self)
+        : TradeSpring::IManager->new( frame => $self, indicator_traits => ['Strict'] );
 }
 
 sub BUILD {}
@@ -30,12 +32,15 @@ after BUILD => method {
                                                     %{ $attr->args }
                                                 ) );
     }
-    $self->imanager->prepare(0, $self->calc->prices->count-1, $self->use_cache);
+
+    return unless $self->imanager->can('prepare');
+
+    $self->imanager->prepare(0, $self->calc->prices->count-1, 1);
     for my $attr (@attrs) {
         my $indicator = $attr->get_value( $self );
         my $range = $self->range || [0, $self->calc->prices->count - 1];
         $self->log->info("populating indicator: ".$indicator->as_string." for ".$attr->name." ".join(',', @$range));
-        $self->imanager->get_values($indicator, @$range, $self->use_cache);
+        $self->imanager->get_values($indicator, @$range, 1);
     }
 };
 
