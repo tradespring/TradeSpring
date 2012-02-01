@@ -40,11 +40,13 @@ my $initial = 1400;
 my $cost = 3;
 my $_maxqty = 64;
 
+my $r_min;
 my $ps_store;
 my $ps_class = 'TradeSpring::PS::MarketMoney';
 
 my $init = Finance::GeniusTrader::CLI::init(
     'cnt=i' => \$cnt,
+    'rmin=i' => \$r_min,
     'maxqty=i' => \$_maxqty,
     'cost=s' => \$cost,
     'iteration=i' => \$iteration,
@@ -207,6 +209,7 @@ sub res_for_seq {
     for (@$seq) {
         my $entry = $r->[$_];
         my $r = $entry->{r} || int($entry->{open_price} * $default_stp);
+        $r = max($r, $r_min) if $r_min;
         my $rm = ($entry->{profit} - $cost) / $r;
         my $qty = min($cb_qty->($r), $_maxqty);
         unless ($qty) {
