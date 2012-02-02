@@ -17,7 +17,6 @@ has calc => (is => "ro", isa => "Finance::GeniusTrader::Calculator",
 
 has hour => (is => "rw");
 has last_hour => (is => "rw");
-has is_dstart => (is => "rw", default => sub { 1 });
 has current_min => (is => "rw", isa => "Int");
 
 has nmin => (
@@ -37,14 +36,6 @@ method _set_i($i) {
     my $hour = $hh*100+$mm;
     my $old = $self->hour;
     $self->hour($hour);
-
-    if (!$old || $hour < $old ) {
-        $self->is_dstart(1)
-    }
-    else {
-        $self->is_dstart(0);
-    }
-
     $self->last_hour($old);
 
     $self->current_min($hh * 60 + $mm);
