@@ -25,6 +25,7 @@ requires 'Graph';
 requires 'Data::Walk';
 requires 'YAML::Syck';
 requires 'FSA::Rules';
+requires 'Config::GitLike';
 
 requires 'Math::Random::MT';
 
