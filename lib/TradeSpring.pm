@@ -11,7 +11,9 @@ use Finance::GeniusTrader::Tools qw(:conf :timeframe);
 use Finance::GeniusTrader::DateTime;
 use YAML::Syck;
 
+use TradeSpring::Config;
 use TradeSpring::Broker::Local;
+
 sub local_broker {
    TradeSpring::Broker::Local->new_with_traits
         (traits => ['Stop', 'Timed', 'Update', 'Attached', 'OCA'],
@@ -41,6 +43,12 @@ sub init_logging {
 }
 
 our $Config;
+
+my $config;
+
+sub config {
+    $config ||= TradeSpring::Config->new;
+}
 
 sub raw_jfo_broker_args {
     eval {
@@ -355,7 +363,7 @@ sub run_tick_fitf {
         if $logger->is_debug;
     if (!$fitf || $fitf->header->{date} ne $date->ymd('')) {
         $fitf = Finance::FITF->new_from_file(
-            fitf_store($date)) or die;
+            fitf_store($daytrade->calc->code, $date)) or die;
     }
 
 
@@ -397,9 +405,22 @@ sub run_tick_fitf {
 
 }
 
+my $fitf_format;
 sub fitf_store {
+    my $code = shift;
     my $date = shift;
-    return '/Users/clkao/work/trade/XTAF.TX/'.$date->year.'/XTAF.TX-'.$date->ymd.'.fitf';
+    unless ($fitf_format) {
+        my $contract = TradeSpring->config->get_instrument($code)
+            or die "instrument $code not found";
+        my $db_path = $contract->attr('fitf.archive')
+            or die "fitf.archive not found for instrument $code";
+        $db_path =~ s/\%c/$code/g;
+        $fitf_format = DateTime::Format::Strptime->new(
+            pattern     => $db_path,
+            time_zone   => $contract->time_zone );
+    }
+    Carp::croak "fitf_store must be called with date" unless $date;
+    return $fitf_format->format_datetime($date);
 }
 
 use Finance::GeniusTrader::Calculator;
