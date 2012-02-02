@@ -264,11 +264,11 @@ sub run_prices {
             $strategy->current_date : $Strp->parse_datetime($date);
 
         my ($h, $m, $s) = split(/:/, $time);
-        my $ds = $h * 3600 + $m * 60 + $s;
+        my $ds = $dt->epoch + $strategy->current_min * 60;
 
         return if
             none { $_->{order}{timed}
-                   ? $dt->epoch + $ds >= $_->{order}{timed}
+                   ? $ds >= $_->{order}{timed}
                    : _order_effective($strategy, $_->{order}) }
                     values %{$lb->orders};
 
@@ -331,8 +331,7 @@ sub sim_prices {
     }
 
     my $nsecs = Finance::GeniusTrader::DateTime::timeframe_ratio($strategy->calc->prices->timeframe, $PERIOD_1MIN) * 60;
-    my ($h, $m, $s) = split /:/, $time;
-    my $ts = $dt->epoch + $h * 3600 + $m * 60 + $s;
+    my $ts = $dt->epoch + $strategy->current_min * 60;
     my $d = $strategy->date; # XXX: fix for timed orders
     @p = ($strategy->open, @p);
     my %seen = map { $_ => 1 } @p;

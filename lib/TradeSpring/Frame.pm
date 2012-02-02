@@ -2,6 +2,7 @@ package TradeSpring::Frame;
 use Moose;
 
 use Finance::GeniusTrader::Prices;
+use Finance::GeniusTrader::DateTime;
 use Method::Signatures::Simple;
 use Number::Extreme;
 
@@ -9,18 +10,29 @@ method debug($message, $i) {
     warn $self->date($i).' '.$message.$/;
 }
 
-has i => (is => "rw", isa => "Int", trigger => \&_set_hour);
+has i => (is => "rw", isa => "Int", trigger => method { $self->_set_i(@_) } );
 
 has calc => (is => "ro", isa => "Finance::GeniusTrader::Calculator",
              required => 1);
 
-has day => (is => "ro", isa => "DateTime");
-
 has hour => (is => "rw");
 has last_hour => (is => "rw");
 has is_dstart => (is => "rw", default => sub { 1 });
+has current_min => (is => "rw", isa => "Int");
 
-method _set_hour($i) {
+has nmin => (
+    is => "rw",
+    isa => "Int",
+    lazy_build => 1
+);
+
+method _build_nmin {
+    Finance::GeniusTrader::DateTime::timeframe_ratio(
+        $self->calc->prices->timeframe,
+        $PERIOD_1MIN);
+}
+
+method _set_i($i) {
     my ($hh, $mm) = $self->date($i) =~ m/ (\d\d):(\d\d)/ or return;
     my $hour = $hh*100+$mm;
     my $old = $self->hour;
@@ -34,6 +46,8 @@ method _set_hour($i) {
     }
 
     $self->last_hour($old);
+
+    $self->current_min($hh * 60 + $mm);
 }
 
 method prices {
