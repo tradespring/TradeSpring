@@ -118,8 +118,12 @@ before run => method {
             $self->dframe->i( $self->dcalc->prices->date($last_day) //
                               $self->dcalc->prices->date($last_day.' 00:00:00') );
         }
-        $self->on_day_start if $self->can('on_day_start');
     }
+    $self->on_session_start
+        if $self->is_next && $self->can('on_session_start');
+
+    $self->on_day_start
+        if $self->is_dstart && $self->can('on_day_start');
 };
 
 method check_session {
