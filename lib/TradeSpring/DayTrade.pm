@@ -152,7 +152,12 @@ method check_session {
 }
 
 method order_timed($h, $m, $s) {
-    return $self->current_date->epoch + $h * 3600 + $m * 60 + $s;
+    if (defined $m) {
+        return $self->current_date->epoch + $h * 3600 + $m * 60 + $s;
+    }
+    else {
+        return $self->current_date->epoch + $h;
+    }
 }
 
 after run => method {
