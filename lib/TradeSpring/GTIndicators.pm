@@ -31,6 +31,7 @@ sub has_indicator {
                     }
 
                     $i //= $self->i;
+                    return unless defined $i;
                     my $indicators = $self->calc->indicators;
                     $object->calculate( $calc, $i )
                         unless $indicators->is_available( $object_name, $i );
