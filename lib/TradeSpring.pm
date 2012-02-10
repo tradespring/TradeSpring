@@ -423,52 +423,93 @@ sub fitf_store {
 }
 
 use Finance::GeniusTrader::Calculator;
+use Term::ANSIScreen qw(:color :screen);
 
 sub livespring {
     my ($pagm, $client, $myself, $code, $tf,
         $logger, $strategy_name, $broker, $daytrade, $init_cb, $loadcnt) = @_;
-    my $session_ready = AE::cv;
 
     my $session_cb = sub {
-        my $msg = shift;
-        my $start = $msg->{session_start};
+        my $session = shift;
+        my $start = $session->{session_start};
         if ($init_cb) {
             if ($start - 450 > AnyEvent->time) {
                 my $w; $w = AnyEvent->timer(
                     after => $start - 450 - AnyEvent->time,
                     cb => sub {
-                        $init_cb->($msg);
+                        $init_cb->($session);
                         undef $w;
                     });
             }
             else {
-                $init_cb->($msg);
+                $init_cb->($session);
             }
         }
     };
-    $client->poll(live_handler($pagm, $client, $myself, $code, $tf,
-                               $logger, $strategy_name, $broker, $daytrade, $session_cb, $loadcnt));
 
-    $pagm->publish({ type => 'pagm.session',
-                     code => $code,
-                     reply => $myself->name });
-}
-
-use Term::ANSIScreen qw(:color :screen);
-
-sub live_handler {
-    my ($pagm, $client, $myself, $code, $tf, $logger,
-        $strategy_name, $broker, $daytrade, $session_cb, $loadcnt) = @_;
-    my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($tf);
-
-    my $calc;
-    my ($tick_channel, $ag_channel);
     my $strategy;
-    sub {
+    my $calc;
+    $client->poll(sub {
         my $msg = shift;
 
         if (!exists $msg->{type} && $msg->{price}) { # tick
-            return unless $calc;
+            $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
+        }
+        else {
+            $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
+        }
+        return 1;
+
+    });
+
+    init_quote(
+        code => $code,
+        tf => $tf,
+        bus => $pagm->bus,
+        pagm => $pagm,
+        loadcnt => $loadcnt,
+        on_load => sub {
+            my ($session, $_calc) = @_;
+            my $end = $session->{session_end};
+            if ($end > AnyEvent->time) {
+                my $w; $w = AnyEvent->timer(
+                    after => $end - AnyEvent->time,
+                    cb => sub {
+                        $strategy->end;
+                        undef $w;
+                    });
+            }
+            $session_cb->($session);
+
+            local $_; # XXX: something is modifying $_ and cause anymq topic reaper trouble
+            $calc = $_calc;
+            $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
+
+            eval { pre_run_strategy($session, $strategy) } if $daytrade;
+
+            $client->subscribe($myself->bus->topic($session->{tick_channel}));
+
+            init_terminal($pagm->bus, $session, $calc, $tf);
+        },
+        on_bar => sub {
+            $strategy->i($calc->prices->count-1);
+            $strategy->run();
+        }
+    );
+}
+
+sub init_terminal {
+    my ($bus, $session, $calc, $tf) = @_;
+
+    my $client = $bus->new_listener;
+    $client->on_error(sub {
+                          $logger->fatal(join(',',@_));
+                      });
+
+    $client->poll(sub {
+        my $msg = shift;
+
+        if (!exists $msg->{type} && $msg->{price}) { # tick
             my $time = $msg->{time};
 
             {
@@ -482,58 +523,8 @@ sub live_handler {
                 print colored [$c], sprintf(" P: %5d V: %6d", $msg->{price}, $msg->{volume} );
                 print "\r";
             }
-
-            $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
-        }
-        elsif ($msg->{type} eq 'pagm.session') {
-            $pagm->publish({type => 'pagm.history', code => $code,
-                            timeframe => $tf, count => $loadcnt || 300,
-                            reply => $myself->name});
-            $tick_channel = $msg->{tick_channel};
-            $ag_channel = $msg->{ag_channel}.$tf;
-            my $end = $msg->{session_end};
-            if ($end > AnyEvent->time) {
-                my $w; $w = AnyEvent->timer(
-                    after => $end - AnyEvent->time,
-                    cb => sub {
-                        $strategy->end;
-                        undef $w;
-                    });
-            }
-            $session_cb->($msg);
-        }
-        elsif ($msg->{type} eq 'history') {
-            my $prices = $msg->{prices};
-            $logger->info("loaded ".(scalar @{$prices})." items for $code/$tf from pagm: $prices->[0][5] - $prices->[-1][5]");
-            my $p = Finance::GeniusTrader::Prices->new;
-            $p->{prices} = $prices;
-            $p->set_timeframe($timeframe);
-            $calc = Finance::GeniusTrader::Calculator->new($p);
-
-            local $_; # XXX: something is modifying $_ and cause anymq topic reaper trouble
-            $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
-
-            $client->subscribe($myself->bus->topic($tick_channel));
-            $client->subscribe($myself->bus->topic($ag_channel));
-
-            if ($daytrade) {
-                # XXX: load existing position?
-                my $start = $calc->prices->count-1;
-                my $dt = DateTime->now(time_zone => 'Asia/Taipei');
-
-                while (($p->at($start-1)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd ) {
-                    --$start;
-                }
-                if ($start != $calc->prices->count-1) {
-                    for my $i ($start..$calc->prices->count-1) {
-                        $strategy->i($i);
-                        $strategy->run();
-                    }
-                }
-            }
         }
         elsif ($msg->{type} eq 'agbar') { # bar
-            next unless $calc;
             my $prices = $msg->{data};
 
             {
@@ -549,16 +540,86 @@ sub live_handler {
                 print color 'reset';
                 print $/;
             }
-
-            $calc->prices->add_prices($prices);
-            $strategy->i($calc->prices->count-1);
-            $strategy->run();
         }
         else {
             $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
         }
         return 1;
-    };
+
+    });
+
+    $client->subscribe($bus->topic($session->{tick_channel}));
+    $client->subscribe($bus->topic($session->{ag_channel}.$tf));
+}
+
+sub pre_run_strategy {
+    my ($session, $strategy) = @_;
+    # XXX: load existing position?
+    my $calc = $strategy->calc;
+    my $p = $calc->prices;
+    my $start = $calc->prices->count-1;
+    my $dt = DateTime->now(time_zone => $session->{timezone});
+    while (($p->at($start-1)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd ) {
+        --$start;
+    }
+    if ($start != $calc->prices->count-1) {
+        for my $i ($start..$calc->prices->count-1) {
+            $strategy->i($i);
+            $strategy->run();
+        }
+    }
+}
+
+sub init_quote {
+    my %args = @_;
+    my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($args{tf});
+    my $calc;
+
+    my $bus = $args{bus};
+
+    my $myself = $bus->topic("livespring-$$");
+    my $client = $bus->new_listener($myself);
+    $client->on_error(sub {
+                          $logger->fatal(join(',',@_));
+                      });
+
+    my $pagm = $args{pagm} || $bus->topic({name => 'pagmctrl.'.$args{node}});
+
+    my $session;
+    $client->poll(
+        sub {
+            my $msg = shift;
+
+            if ($msg->{type} eq 'pagm.session') {
+                $pagm->publish({type => 'pagm.history', code => $args{code},
+                                timeframe => $args{tf}, count => $args{loadcnt} || 300,
+                                reply => $myself->name });
+                $session = $msg;
+            }
+            elsif ($msg->{type} eq 'history') {
+                my $prices = $msg->{prices};
+                $logger->info("loaded ".(scalar @{$prices})." items for $args{code}/$args{tf} from pagm: $prices->[0][5] - $prices->[-1][5]");
+                my $p = Finance::GeniusTrader::Prices->new;
+                $p->{prices} = $prices;
+                $p->set_timeframe($timeframe);
+                $calc = Finance::GeniusTrader::Calculator->new($p);
+                $client->subscribe($bus->topic($session->{ag_channel}.$args{tf}));
+                $args{on_load}->($session, $calc);
+            }
+            elsif ($msg->{type} eq 'agbar') {
+                my $prices = $msg->{data};
+                $calc->prices->add_prices($prices);
+                $args{on_bar}->();
+            }
+            else {
+                $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
+            }
+            return 1;
+        });
+
+    $pagm->publish({ type => 'pagm.session',
+                     code => $args{code},
+                     reply => $myself->name });
 }
 
 1;
