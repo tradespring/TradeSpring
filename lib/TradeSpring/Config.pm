@@ -38,15 +38,18 @@ method get_instrument($name) {
         my $yml = $self->get( key => "instrument.$name.config");
         $instrument = -e $yml ? $global->load_instrument_from_yml($yml)
                               : $global->load_default_instrument("futures/$name");
-        my $attr = $self->get_regexp( key => "instrument.$name.");
-        for (keys %$attr) {
-            my $key = $_;
+        my $attr = $self->get_children( "instrument.$name" );
+        for my $key (keys %$attr) {
             my $val = $attr->{$key};
-            $key =~ s/instrument\.\Q$name\E\.//;
             $instrument->attr($key => $val);
         }
     }
     return $instrument;
 }
 
+method get_children($prefix) {
+    my $attr = $self->get_regexp( key => "$prefix\\." );
+    return unless keys %$attr;
+    return $self->subsection($attr, $prefix);
+}
 1;
