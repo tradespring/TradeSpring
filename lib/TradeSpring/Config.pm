@@ -37,7 +37,7 @@ method get_instrument($name) {
     unless ($instrument) {
         my $yml = $self->get( key => "instrument.$name.config");
         $instrument = -e $yml ? $global->load_instrument_from_yml($yml)
-                              : $global->load_default_instrument($yml);
+                              : $global->load_default_instrument("futures/$name");
         my $attr = $self->get_regexp( key => "instrument.$name.");
         for (keys %$attr) {
             my $key = $_;
