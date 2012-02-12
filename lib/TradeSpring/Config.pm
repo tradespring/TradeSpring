@@ -3,6 +3,9 @@ use strict;
 use methods;
 use base qw(Config::GitLike);
 use Finance::Instrument;
+use Finance::GeniusTrader::Conf;
+
+Finance::GeniusTrader::Conf::load();
 
 my $global = Finance::Instrument::Domain->global;
 $global->load_default_exchanges;

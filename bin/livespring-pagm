@@ -1,9 +1,4 @@
 #!/usr/bin/perl -w
-use strict;
-use Finance::GeniusTrader::Conf;
-
-Finance::GeniusTrader::Conf::load();
-
 package main;
 use strict;
 use Moose;

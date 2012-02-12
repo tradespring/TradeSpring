@@ -1,7 +1,4 @@
 #!/usr/bin/perl -w
-use Finance::GeniusTrader::Conf;
-Finance::GeniusTrader::Conf::load();
-
 package main;
 use strict;
 use Getopt::Long qw(:config pass_through);
