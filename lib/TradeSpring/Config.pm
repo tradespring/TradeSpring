@@ -52,4 +52,19 @@ method get_children($prefix) {
     return unless keys %$attr;
     return $self->subsection($attr, $prefix);
 }
+
+method subsection($attr, $prefix) {
+    return { map {
+        my $key = $_;
+        s/\Q$prefix\E\.//
+            ? ( $_ => $attr->{$key} ) : ()
+    } keys %$attr };
+}
+
+method get_deployment($name) {
+    my $d = $self->get_children("deployment.$name");
+    $d->{strategy} = [$d->{strategy}] unless ref $d->{strategy};
+    return $d;
+}
+
 1;
