@@ -23,7 +23,7 @@ method load($prev, $first, $last) {
             $self->log->info("state restored from $f");
         }
         catch {
-            $self->log->error("failed to load state: $_");
+            $self->log('TradeSpring.Position')->error("failed to load state: $_");
             $self->i($prev);
             $self->log->warn("rerun last: ".$self->date);
             $self->run;
@@ -103,7 +103,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
                             $self->format_order($o->{order}, $state->notes('order_price'), $_[0]);
-                            $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
+                            $self->log('TradeSpring.Position')->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                             $state->notes(submit_i => $submit_i);
                             $state->notes(entry_price =>$o->{order}{price});
                             my $new = $state->machine->try_switch();
@@ -198,7 +198,7 @@ method _submit_exit_order($type, $order, $state) {
             my $o = $self->broker->get_order($id);
             if ($_[0]) {
                 $self->format_order($o->{order}, $order->{price} || $self->broker->{last_price}, $_[0]);
-                $self->log->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
+                $self->log('TradeSpring.Position')->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                 $self->fill_position($o->{order}{dir}, $o->{order}{price}, $_[0], $self->i, exit_type => $type, $self->exit_map($state));
                 $state->machine->curr_state->result($_[0]);
                 my $new = $state->machine->try_switch();
