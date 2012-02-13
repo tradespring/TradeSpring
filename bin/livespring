@@ -25,7 +25,7 @@ my $logger = Log::Log4perl->get_logger("tradespring");
 my $name = shift or die "deployment required";
 
 if (@ARGV) {
-    die "unhandled arg: ".join(',',@ARGV);
+    warn "unhandled arg: ".join(',',@ARGV);
 }
 
 my $deployment = TradeSpring->config->get_deployment($name) or die "deployment '$name' not found";
