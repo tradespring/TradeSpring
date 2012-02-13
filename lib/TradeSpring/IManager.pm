@@ -5,7 +5,7 @@ use Method::Signatures::Simple;
 use Graph;
 use Graph::Traversal::DFS;
 
-has frame => (is => "rw");
+has frame => (is => "rw", trigger => \&_after_set_frame);
 
 has indicator_traits => (is => "rw", isa => "ArrayRef");
 
@@ -58,6 +58,9 @@ method expand_tree($g, $i) {
     }
 }
 
+method _after_set_frame($frame) {
+    $self->indicators->{ $_ }->frame($frame) for keys %{$self->indicators};
+}
 
 __PACKAGE__->meta->make_immutable;
 no Moose;
