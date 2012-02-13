@@ -54,11 +54,12 @@ method get_children($prefix) {
 }
 
 method subsection($attr, $prefix) {
-    return { map {
+    my $config = { map {
         my $key = $_;
         s/\Q$prefix\E\.//
             ? ( $_ => $attr->{$key} ) : ()
     } keys %$attr };
+    keys %$config ? $config : undef;
 }
 
 method get_deployment($name) {
