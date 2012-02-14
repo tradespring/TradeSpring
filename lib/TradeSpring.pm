@@ -627,11 +627,14 @@ sub init_quote {
                      reply => $myself->name });
 }
 
-
 sub load_broker {
     my ($config, $deployment, $instrument) = @_;
-    my $now = DateTime->now;
-    my $contract = $instrument->near_term_contract($now);
+    my $contract = $instrument->near_term_contract(DateTime->now);
+    load_broker_by_contract($contract, $config, $deployment);
+}
+
+sub load_broker_by_contract {
+    my ($contract, $config, $deployment) = @_;
 
     if ($config->{class} eq 'IB') {
         return load_ib_broker($contract, $config, $deployment);
@@ -639,6 +642,44 @@ sub load_broker {
     elsif ($config->{class} eq 'JFO') {
         return load_jfo_broker($contract, $config, $deployment);
     }
+    elsif ($config->{class} eq 'SYNTH') {
+        return load_synth_broker($contract, $config, $deployment);
+    }
+    else {
+        die "unknown broker class: $config->{class}";
+    }
+}
+
+sub parse_broker_spec {
+    my $broker_spec = shift;
+    my ($class, $broker_name, $args) =
+        $broker_spec =~ m/^(\w+)\[(\w+)(?:,(.*?))?\]$/x;
+    return ($class, $broker_name, $args ? map { split /=/ } split /,/, $args : ());
+}
+
+sub load_synth_broker {
+    my ($contract, $config, $deployment) = @_;
+    my $jfo = TradeSpring->config->get_children( "synth.$config->{name}" )
+        or die "SYNTH config $config->{name} not found";
+
+    my $brokers = $jfo->{broker};
+    $brokers = [$brokers] unless ref $brokers;
+    my $backends = [];
+
+    for my $broker_spec (@$brokers) {
+        my ($class, $broker_name, %args) = parse_broker_spec($broker_spec);
+        push @$backends, { %args,
+                           broker => load_broker_by_contract($contract, {%$config,
+                                                                         class => $class,
+                                                                         name => $broker_name, %args}, {})
+                       };
+    }
+
+    require TradeSpring::Broker::Partition;
+    TradeSpring::Broker::Partition->new_with_traits
+        ( backends => $backends,
+          traits => ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'],
+      );
 }
 
 sub load_jfo_broker {
