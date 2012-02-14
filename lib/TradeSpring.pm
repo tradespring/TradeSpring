@@ -746,6 +746,7 @@ sub load_jfo_broker {
             });
 }
 
+my %tws;
 sub load_ib_broker {
     my ($contract, $config) = @_;
     require TradeSpring::Broker::IB;
@@ -753,8 +754,8 @@ sub load_ib_broker {
     my $ib = TradeSpring->config->get_children( "ib.$config->{name}" )
         or die "IB config $config->{name} not found";
 
-    my $tws = AE::TWS->new(host => $ib->{host}, port => $ib->{port},
-                           client_id => $config->{client_id});
+    my $tws = $tws{$config->{name}} ||= AE::TWS->new(host => $ib->{host}, port => $ib->{port},
+                                                     client_id => $config->{client_id}+9);
     my $symbol = $config->{symbol} || $contract->attr('ib.symbol') || $contract->futures->code;
     my $exchange = $contract->exchange->attr('ib.exchange') or die;
 
