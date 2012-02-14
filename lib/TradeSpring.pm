@@ -42,12 +42,16 @@ sub init_logging {
     $logger = Log::Log4perl->get_logger("tradespring");
 }
 
-our $Config;
-
 my $config;
 
 sub config {
     $config ||= TradeSpring::Config->new;
+}
+
+my $jfo_config;
+
+sub jfo_config {
+    $jfo_config ||= YAML::Syck::LoadFile('config.yml') or die "Can't load config.yml";
 }
 
 sub raw_jfo_broker_args {
@@ -62,8 +66,8 @@ sub raw_jfo_broker_args {
     my $now = DateTime->now;
     my $near = $contract->_near_term($now);
 
-    my $account = $Config->{accounts}{$c->{account}} or die "$c->{account} not found";
-    my $uri = URI->new($Config->{notify_uri}."/".$c->{account});
+    my $account = jfo_config->{accounts}{$c->{account}} or die "$c->{account} not found";
+    my $uri = URI->new(jfo_config->{notify_uri}."/".$c->{account});
     if ($port) {
         my $address = Net::Address::IP::Local->connected_to(URI->new($account->{endpoint}{address})->host);
 
@@ -92,8 +96,7 @@ sub raw_jfo_broker_args {
 
 sub jfo_broker {
     my ($cname, $port, %args) = @_;
-    $Config ||= YAML::Syck::LoadFile('config.yml') or die "Can't load config.yml";
-    my $c = $Config->{commodities}{$cname} or die "$cname not found in config";
+    my $c = jfo_config->{commodities}{$cname} or die "$cname not found in config";
     my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
 
     if ($c->{backends}) {
@@ -101,7 +104,7 @@ sub jfo_broker {
         my $backends = [map {
             { %$_,
                broker => TradeSpring::Broker::JFO->new_with_traits(
-                   %{raw_jfo_broker_args($Config->{commodities}{$_->{broker}}, $port)},
+                   %{raw_jfo_broker_args(jfo_config->{commodities}{$_->{broker}}, $port)},
                    traits => ['Position'],
                    $args{daytrade} ? (position_effect_open => '') : ())
            }
