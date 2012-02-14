@@ -690,7 +690,7 @@ sub load_jfo_broker {
         or die "JFO config $config->{name} not found";
     my $broker_name = $jfo->{broker};
 
-    my $symbol = $contract->attr($broker_name.'.symbol') || $contract->futures->code;
+    my $symbol = $config->{symbol} || $contract->attr($broker_name.'.symbol') || $contract->futures->code;
     my $exchange = $contract->exchange->attr($broker_name.'.exchange') or die;
 
     my $uri = URI->new($jfo->{notify_uri}."/".$config->{name});
@@ -719,7 +719,7 @@ sub load_jfo_broker {
         }
     };
 
-    $logger->info($contract->code." as $exchange $symbol");
+    $logger->info("[$config->{name}] ". $contract->code." as $exchange $symbol");
 
     my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
 
@@ -755,7 +755,7 @@ sub load_ib_broker {
 
     my $tws = AE::TWS->new(host => $ib->{host}, port => $ib->{port},
                            client_id => $config->{client_id});
-    my $symbol = $contract->attr('ib.symbol') || $contract->futures->code;
+    my $symbol = $config->{symbol} || $contract->attr('ib.symbol') || $contract->futures->code;
     my $exchange = $contract->exchange->attr('ib.exchange') or die;
 
     TradeSpring::Broker::IB->new(
