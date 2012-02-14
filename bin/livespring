@@ -8,15 +8,11 @@ use Getopt::Long qw(:config pass_through);
 use Log::Log4perl;
 use TradeSpring;
 
-my $port = 5019;
 my $test_broker;
 my $logconf;
-my $keepaddress;
 
 GetOptions ("test"      => \$test_broker,
             "logconf=s" => \$logconf,
-            "keepaddress" => \$keepaddress,
-            "port=i"    => \$port,
         ) or die;
 
 TradeSpring::init_logging($logconf || 'log.conf');
@@ -25,7 +21,7 @@ my $logger = Log::Log4perl->get_logger("tradespring");
 my $name = shift or die "deployment required";
 
 if (@ARGV) {
-    warn "unhandled arg: ".join(',',@ARGV);
+    die "unhandled arg: ".join(',',@ARGV);
 }
 
 my $deployment = TradeSpring->config->get_deployment($name) or die "deployment '$name' not found";
@@ -43,14 +39,13 @@ my $quit = AE::cv;
 
 $|++;
 
-my $cname = $broker_config->{name};
+my $instrument = TradeSpring->config->get_instrument($deployment->{code});
 
-my $broker = $test_broker ? TradeSpring::local_broker()
-                          : TradeSpring::jfo_broker($cname, $keepaddress ? undef : $port,
-                                                    daytrade => $deployment->{daytrade});
+my ($broker, $runloop) = $test_broker ? TradeSpring::local_broker()
+    : TradeSpring::load_broker($broker_config, $deployment, $instrument)
+    or $logger->error_die("unknown broker class for deployment $name");
 
-my $has_jfo = TradeSpring::Broker::JFO->can('jfo_instances') &&
-    scalar keys %{ TradeSpring::Broker::JFO->jfo_instances };
+
 my $ready_cv = AE::cv;
 my $init_cb = sub {
     $ready_cv->send(1);
@@ -136,18 +131,6 @@ TradeSpring::init_quote( bus => $bus,
                              $bar->publish($msg);
                          }
                      );
-
-if ($has_jfo) {
-    use Plack::Builder;
-    my $app = builder {
-        TradeSpring::Broker::JFO->mount_instances({ ready_cv => $ready_cv,
-                                                    check => 90 });
-        mount '/' => sub {
-            return [404, ['Conetent-Type', 'text/plain'], ['not found']];
-        };
-    };
-
-    TradeSpring::Broker::JFO->app_loader($app, __FILE__, $port);
-}
+$runloop->(__FILE__, $ready_cv) if $runloop;
 
 exit $quit->recv;

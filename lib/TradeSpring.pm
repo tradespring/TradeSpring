@@ -622,6 +622,106 @@ sub init_quote {
                      reply => $myself->name });
 }
 
+
+sub load_broker {
+    my ($config, $deployment, $instrument) = @_;
+    my $now = DateTime->now;
+    my $contract = $instrument->near_term_contract($now);
+
+    if ($config->{class} eq 'IB') {
+        return load_ib_broker($contract, $config, $deployment);
+    }
+    elsif ($config->{class} eq 'JFO') {
+        return load_jfo_broker($contract, $config, $deployment);
+    }
+}
+
+sub load_jfo_broker {
+    my ($contract, $config, $deployment) = @_;
+    require TradeSpring::Broker::JFO;
+    require TradeSpring::Broker::JFO::EndPoint;
+    my $jfo = TradeSpring->config->get_children( "jfo.$config->{name}" )
+        or die "JFO config $config->{name} not found";
+    my $broker_name = $jfo->{broker};
+
+    my $symbol = $contract->attr($broker_name.'.symbol') || $contract->futures->code;
+    my $exchange = $contract->exchange->attr($broker_name.'.exchange') or die;
+
+    my $uri = URI->new($jfo->{notify_uri}."/".$config->{name});
+
+    if ((my $port = $config->{port}) && !$config->{keepaddress}) {
+        my $address = Net::Address::IP::Local->connected_to(URI->new($jfo->{endpoint})->host);
+
+        $uri->host($address);
+        $uri->port($port);
+    }
+
+    my $ep = TradeSpring::Broker::JFO::EndPoint->new({
+        address => $jfo->{endpoint},
+        notify_uri => $uri->as_string });
+
+    $logger->info("JFO endpoint: @{[ $ep->address ]}, notification address: @{[ $ep->notify_uri ]}");
+
+    my $raw_args = {
+        name => $config->{name},
+        endpoint => $ep,
+        params => {
+            type => 'Futures',
+            exchange => $exchange,
+            code => $symbol,
+            year => $contract->expiry_year, month => $contract->expiry_month,
+        }
+    };
+
+    $logger->info($contract->code." as $exchange $symbol");
+
+    my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
+
+    my $broker = TradeSpring::Broker::JFO->new_with_traits
+        ( %$raw_args,
+          traits => $traits,
+          $deployment->{daytrade} ? (position_effect_open => '') : (),
+      );
+    return ($broker,
+            sub {
+                my ($file, $ready_cv) = @_;
+                use Plack::Builder;
+                my $app = builder {
+                    TradeSpring::Broker::JFO->mount_instances({ ready_cv => $ready_cv,
+                                                                check => 90 });
+                    mount '/' => sub {
+                        return [404, ['Conetent-Type', 'text/plain'], ['not found']];
+                    };
+                };
+                local @ARGV = split(/\s+/, $config->{opts});
+#die $config->{port}.join(',',@ARGV);
+
+                TradeSpring::Broker::JFO->app_loader($app, $file, $config->{port} || 5019);
+            });
+}
+
+sub load_ib_broker {
+    my ($contract, $config) = @_;
+    require TradeSpring::Broker::IB;
+
+    my $ib = TradeSpring->config->get_children( "ib.$config->{name}" )
+        or die "IB config $config->{name} not found";
+
+    my $tws = AE::TWS->new(host => $ib->{host}, port => $ib->{port},
+                           client_id => $config->{client_id});
+    my $symbol = $contract->attr('ib.symbol') || $contract->futures->code;
+    my $exchange = $contract->exchange->attr('ib.exchange') or die;
+
+    TradeSpring::Broker::IB->new(
+        tws => $tws,
+        exchange => $exchange,
+        symbol => $symbol,
+        expiry => $contract->expiry,
+        tz => $contract->time_zone,
+        divisor => 1 / $contract->tick_size,
+    );
+}
+
 1;
 __END__
 
