@@ -674,26 +674,28 @@ sub load_synth_broker {
     my $brokers = $jfo->{broker};
     $brokers = [$brokers] unless ref $brokers;
     my $backends = [];
-
+    my @loops;
     for my $broker_spec (@$brokers) {
         my ($class, $broker_name, %args) = parse_broker_spec($broker_spec)
             or die "failed to parse broker spec: $broker_spec";
 
-        push @$backends, { %args,
-                           broker => load_broker_by_contract($contract,
+        my ($broker, $loop) =  load_broker_by_contract($contract,
                                                              {%$config,
                                                               class => $class,
                                                               name => $broker_name,
                                                               %args
-                                                          }, {}),
+                                                          }, {});
+        push @$backends, { %args,
+                           broker => $broker
                        };
+        push @loops, $loop;
     }
 
     require TradeSpring::Broker::Partition;
-    TradeSpring::Broker::Partition->new_with_traits
+    (TradeSpring::Broker::Partition->new_with_traits
         ( backends => $backends,
           traits => ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'],
-      );
+      ), @loops);
 }
 
 sub load_jfo_broker {
@@ -754,8 +756,6 @@ sub load_jfo_broker {
                     };
                 };
                 local @ARGV = split(/\s+/, $config->{opts});
-#die $config->{port}.join(',',@ARGV);
-
                 TradeSpring::Broker::JFO->app_loader($app, $file, $config->{port} || 5019);
             });
 }
