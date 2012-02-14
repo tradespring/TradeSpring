@@ -48,9 +48,11 @@ sub config {
     $config ||= TradeSpring::Config->new;
 }
 
+# XXX: deprecated
 my $jfo_config;
 
 sub jfo_config {
+    warn "deprecated";
     $jfo_config ||= YAML::Syck::LoadFile('config.yml') or die "Can't load config.yml";
 }
 
