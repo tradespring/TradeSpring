@@ -28,7 +28,9 @@ my $deployment = TradeSpring->config->get_deployment($name) or die "deployment '
 
 my $ps = TradeSpring->config->subsection($deployment, 'ps');
 my $quote = TradeSpring->config->subsection($deployment, 'quote');
-my $broker_config = TradeSpring->config->subsection($deployment, 'broker');
+my $broker_config = ref $deployment->{broker}
+    ? TradeSpring->config->subsection($deployment, 'broker')
+    : +{ TradeSpring::broker_args_from_spec($deployment->{broker}) };
 
 my $amq = TradeSpring->config->get_children('bus.'.$quote->{bus});
 

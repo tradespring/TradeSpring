@@ -657,6 +657,15 @@ sub parse_broker_spec {
     return ($class, $broker_name, $args ? map { split /=/ } split /,/, $args : ());
 }
 
+sub broker_args_from_spec {
+    my $broker_spec = shift;
+    my ($class, $broker_name, %args) = parse_broker_spec($broker_spec)
+        or die "failed to parse broker spec: $broker_spec";
+    return ( class => $class,
+             name => $broker_name,
+             %args );
+}
+
 sub load_synth_broker {
     my ($contract, $config, $deployment) = @_;
     my $jfo = TradeSpring->config->get_children( "synth.$config->{name}" )
@@ -667,11 +676,16 @@ sub load_synth_broker {
     my $backends = [];
 
     for my $broker_spec (@$brokers) {
-        my ($class, $broker_name, %args) = parse_broker_spec($broker_spec);
+        my ($class, $broker_name, %args) = parse_broker_spec($broker_spec)
+            or die "failed to parse broker spec: $broker_spec";
+
         push @$backends, { %args,
-                           broker => load_broker_by_contract($contract, {%$config,
-                                                                         class => $class,
-                                                                         name => $broker_name, %args}, {})
+                           broker => load_broker_by_contract($contract,
+                                                             {%$config,
+                                                              class => $class,
+                                                              name => $broker_name,
+                                                              %args
+                                                          }, {}),
                        };
     }
 
