@@ -738,7 +738,9 @@ sub load_jfo_broker {
 
     $logger->info("[$config->{name}] ". $contract->code." as $exchange $symbol");
 
-    my $traits = ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'];
+    my $traits = ['Position'];
+    push @$traits, ('Stop', 'Timed', 'Update', 'Attached', 'OCA')
+        unless $config->{wrapped};
 
     my $broker = TradeSpring::Broker::JFO->new_with_traits
         ( %$raw_args,
