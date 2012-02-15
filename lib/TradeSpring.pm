@@ -684,7 +684,7 @@ sub load_synth_broker {
                                                               class => $class,
                                                               name => $broker_name,
                                                               %args
-                                                          }, {});
+                                                          }, $deployment);
         push @$backends, { %args,
                            broker => $broker
                        };
