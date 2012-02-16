@@ -28,7 +28,7 @@ has position_qty => (is => "ro", isa => "Int", default => sub { 1 });
 
 has ps_class => (is => "ro", isa => "Str");
 
-has ps_store => (is => "ro", isa => "Str");
+has ps_store => (is => "rw", isa => "Str");
 
 has ps => (is => "rw");
 

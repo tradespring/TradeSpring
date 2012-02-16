@@ -98,13 +98,13 @@ TradeSpring::init_quote( bus => $bus,
                              }
                              for my $strategy_spec (@{$deployment->{strategy}}) {
                                  my ($strategy_name, @args) = split(/\s+/, $strategy_spec);
-                                 local @ARGV = (@args, '--contract_code', $deployment->{code},
-                                                $ps_object ? (ps_store => $ps_store) : ());
+                                 local @ARGV = (@args, '--contract_code', $deployment->{code});
 
                                  local $_;
                                  my $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
                                  if ($ps_object) {
                                      $strategy->ps($ps_object);
+                                     $strategy->ps_store($ps_store);
                                  }
                                  my $client = $localbus->new_listener($bar);
                                  $client->on_error(sub {
