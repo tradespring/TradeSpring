@@ -577,7 +577,6 @@ sub pre_run_strategy {
 
 sub init_quote {
     my %args = @_;
-    my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($args{tf});
     my $calc;
 
     my $bus = $args{bus};
@@ -596,15 +595,21 @@ sub init_quote {
             my $msg = shift;
 
             if ($msg->{type} eq 'pagm.session') {
-                $pagm->publish({type => 'pagm.history', code => $args{code},
-                                timeframe => $args{tf}, count => $args{loadcnt} || 300,
-                                reply => $myself->name });
                 $session = $msg;
+                if ($args{loadcnt}) {
+                    $pagm->publish({type => 'pagm.history', code => $args{code},
+                                    timeframe => $args{tf}, count => $args{loadcnt} || 300,
+                                    reply => $myself->name });
+                }
+                else {
+                    $args{on_load}->($session);
+                }
             }
             elsif ($msg->{type} eq 'history') {
                 my $prices = $msg->{prices};
                 $logger->info("loaded ".(scalar @{$prices})." items for $args{code}/$args{tf} from pagm: $prices->[0][5] - $prices->[-1][5]");
                 my $p = Finance::GeniusTrader::Prices->new;
+                my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($args{tf});
                 $p->{prices} = $prices;
                 $p->set_timeframe($timeframe);
                 $calc = Finance::GeniusTrader::Calculator->new($p);
