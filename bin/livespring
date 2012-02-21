@@ -106,6 +106,8 @@ init_quote( bus => $bus,
                                  if ($ps_object) {
                                      $strategy->ps($ps_object);
                                      $strategy->ps_store($ps_store);
+                                     $strategy->cost($ps->{cost})
+                                         if $ps->{cost};
                                  }
                                  my $client = $localbus->new_listener($bar);
                                  $client->on_error(sub {
