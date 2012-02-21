@@ -12,7 +12,6 @@ use Finance::GeniusTrader::DateTime;
 use YAML::Syck;
 use TradeSpring::Config;
 
-use Net::Address::IP::Local;
 use Log::Log4perl;
 use Log::Log4perl::Level;
 our $logger;

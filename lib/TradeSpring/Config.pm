@@ -149,6 +149,7 @@ method load_jfo_broker($contract, $config, $deployment) {
     my $uri = URI->new($jfo->{notify_uri}."/".$config->{name});
 
     if ((my $port = $config->{port}) && !$config->{keepaddress}) {
+        require Net::Address::IP::Local;
         my $address = Net::Address::IP::Local->connected_to(URI->new($jfo->{endpoint})->host);
 
         $uri->host($address);
