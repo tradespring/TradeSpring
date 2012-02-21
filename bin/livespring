@@ -7,6 +7,7 @@ use YAML::Syck qw(LoadFile);
 use Getopt::Long qw(:config pass_through);
 use Log::Log4perl;
 use TradeSpring;
+use TradeSpring::Util qw(broker_args_from_spec init_quote);
 
 my $test_broker;
 my $logconf;
@@ -30,7 +31,7 @@ my $ps = TradeSpring->config->subsection($deployment, 'ps');
 my $quote = TradeSpring->config->subsection($deployment, 'quote');
 my $broker_config = ref $deployment->{broker}
     ? TradeSpring->config->subsection($deployment, 'broker')
-    : +{ TradeSpring::broker_args_from_spec($deployment->{broker}) };
+    : +{ broker_args_from_spec($deployment->{broker}) };
 
 my $amq = TradeSpring->config->get_children('bus.'.$quote->{bus});
 
@@ -44,7 +45,7 @@ $|++;
 my $instrument = TradeSpring->config->get_instrument($deployment->{code});
 
 my ($broker, $runloop) = $test_broker ? TradeSpring::local_broker()
-    : TradeSpring::load_broker($broker_config, $deployment, $instrument)
+    : TradeSpring->config->load_broker($broker_config, $deployment, $instrument)
     or $logger->error_die("unknown broker class for deployment $name");
 
 
@@ -67,12 +68,12 @@ if ($ps) {
 
 my $localbus = AnyMQ->new;
 my $bar = $localbus->topic('agbar');
-TradeSpring::init_quote( bus => $bus,
-                         node => $quote->{node},
-                         loadcnt => $quote->{loadcnt},
-                         tf => $deployment->{timeframe},
-                         code => $deployment->{code},
-                         on_load => sub {
+init_quote( bus => $bus,
+            node => $quote->{node},
+            loadcnt => $quote->{loadcnt},
+            tf => $deployment->{timeframe},
+            code => $deployment->{code},
+            on_load => sub {
                              my ($session, $calc) = @_;
                              my $broker_client = $bus->new_listener($bus->topic($session->{tick_channel}));
                              $broker_client->on_error(sub { $logger->fatal(join(',',@_)) } );
@@ -128,11 +129,11 @@ TradeSpring::init_quote( bus => $bus,
 
                              }
                          },
-                         on_bar => sub {
+            on_bar => sub {
                              my $msg = shift;
                              $bar->publish($msg);
                          }
-                     );
+        );
 $runloop->(__FILE__, $ready_cv) if $runloop;
 
 exit $quit->recv;

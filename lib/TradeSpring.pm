@@ -10,16 +10,7 @@ use Finance::GeniusTrader::Eval;
 use Finance::GeniusTrader::Tools qw(:conf :timeframe);
 use Finance::GeniusTrader::DateTime;
 use YAML::Syck;
-
 use TradeSpring::Config;
-use TradeSpring::Broker::Local;
-
-sub local_broker {
-   TradeSpring::Broker::Local->new_with_traits
-        (traits => ['Stop', 'Timed', 'Update', 'Attached', 'OCA'],
-         hit_probability => 1,
-     );
-}
 
 use Net::Address::IP::Local;
 use Log::Log4perl;
@@ -557,6 +548,10 @@ sub init_terminal {
     $client->subscribe($bus->topic($session->{ag_channel}.$tf));
 }
 
+sub load_broker {
+    __PACKAGE__->config->load_broker(@_);
+}
+
 sub pre_run_strategy {
     my ($session, $strategy) = @_;
     # XXX: load existing position?
@@ -573,222 +568,6 @@ sub pre_run_strategy {
             $strategy->run();
         }
     }
-}
-
-sub init_quote {
-    my %args = @_;
-    my $calc;
-
-    my $bus = $args{bus};
-
-    my $myself = $bus->topic("livespring-$$");
-    my $client = $bus->new_listener($myself);
-    $client->on_error(sub {
-                          $logger->fatal(join(',',@_));
-                      });
-
-    my $pagm = $args{pagm} || $bus->topic({name => 'pagmctrl.'.$args{node}});
-
-    my $session;
-    $client->poll(
-        sub {
-            my $msg = shift;
-
-            if ($msg->{type} eq 'pagm.session') {
-                $session = $msg;
-                if ($args{loadcnt}) {
-                    $pagm->publish({type => 'pagm.history', code => $args{code},
-                                    timeframe => $args{tf}, count => $args{loadcnt} || 300,
-                                    reply => $myself->name });
-                }
-                else {
-                    $args{on_load}->($session);
-                }
-            }
-            elsif ($msg->{type} eq 'history') {
-                my $prices = $msg->{prices};
-                $logger->info("loaded ".(scalar @{$prices})." items for $args{code}/$args{tf} from pagm: $prices->[0][5] - $prices->[-1][5]");
-                my $p = Finance::GeniusTrader::Prices->new;
-                my $timeframe = Finance::GeniusTrader::DateTime::name_to_timeframe($args{tf});
-                $p->{prices} = $prices;
-                $p->set_timeframe($timeframe);
-                $calc = Finance::GeniusTrader::Calculator->new($p);
-                $client->subscribe($bus->topic($session->{ag_channel}.$args{tf}));
-                $args{on_load}->($session, $calc);
-            }
-            elsif ($msg->{type} eq 'agbar') {
-                my $prices = $msg->{data};
-                $calc->prices->add_prices($prices);
-                $args{on_bar}->();
-            }
-            else {
-                $logger->error("unhandled message: ".Dumper($msg)); use Data::Dumper;
-            }
-            return 1;
-        });
-
-    $pagm->publish({ type => 'pagm.session',
-                     code => $args{code},
-                     reply => $myself->name });
-}
-
-sub load_broker {
-    my ($config, $deployment, $instrument) = @_;
-    my $contract = $instrument->near_term_contract(DateTime->now);
-    load_broker_by_contract($contract, $config, $deployment);
-}
-
-sub load_broker_by_contract {
-    my ($contract, $config, $deployment) = @_;
-
-    if ($config->{class} eq 'IB') {
-        return load_ib_broker($contract, $config, $deployment);
-    }
-    elsif ($config->{class} eq 'JFO') {
-        return load_jfo_broker($contract, $config, $deployment);
-    }
-    elsif ($config->{class} eq 'SYNTH') {
-        return load_synth_broker($contract, $config, $deployment);
-    }
-    else {
-        die "unknown broker class: $config->{class}";
-    }
-}
-
-sub parse_broker_spec {
-    my $broker_spec = shift;
-    my ($class, $broker_name, $args) =
-        $broker_spec =~ m/^(\w+)\[(\w+)(?:,(.*?))?\]$/x;
-    return ($class, $broker_name, $args ? map { split /=/ } split /,/, $args : ());
-}
-
-sub broker_args_from_spec {
-    my $broker_spec = shift;
-    my ($class, $broker_name, %args) = parse_broker_spec($broker_spec)
-        or die "failed to parse broker spec: $broker_spec";
-    return ( class => $class,
-             name => $broker_name,
-             %args );
-}
-
-sub load_synth_broker {
-    my ($contract, $config, $deployment) = @_;
-    my $jfo = TradeSpring->config->get_children( "synth.$config->{name}" )
-        or die "SYNTH config $config->{name} not found";
-
-    my $brokers = $jfo->{broker};
-    $brokers = [$brokers] unless ref $brokers;
-    my $backends = [];
-    my @loops;
-    for my $broker_spec (@$brokers) {
-        my ($class, $broker_name, %args) = parse_broker_spec($broker_spec)
-            or die "failed to parse broker spec: $broker_spec";
-
-        my ($broker, $loop) =  load_broker_by_contract($contract,
-                                                             {%$config,
-                                                              class => $class,
-                                                              name => $broker_name,
-                                                              wrapped => 1,
-                                                              %args
-                                                          }, $deployment);
-        push @$backends, { %args,
-                           broker => $broker
-                       };
-        push @loops, $loop;
-    }
-
-    require TradeSpring::Broker::Partition;
-    (TradeSpring::Broker::Partition->new_with_traits
-        ( backends => $backends,
-          traits => ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'],
-      ), @loops);
-}
-
-sub load_jfo_broker {
-    my ($contract, $config, $deployment) = @_;
-    require TradeSpring::Broker::JFO;
-    require TradeSpring::Broker::JFO::EndPoint;
-    my $jfo = TradeSpring->config->get_children( "jfo.$config->{name}" )
-        or die "JFO config $config->{name} not found";
-    my $broker_name = $jfo->{broker};
-
-    my $symbol = $config->{symbol} || $contract->attr($broker_name.'.symbol') || $contract->futures->code;
-    my $exchange = $contract->exchange->attr($broker_name.'.exchange') or die;
-
-    my $uri = URI->new($jfo->{notify_uri}."/".$config->{name});
-
-    if ((my $port = $config->{port}) && !$config->{keepaddress}) {
-        my $address = Net::Address::IP::Local->connected_to(URI->new($jfo->{endpoint})->host);
-
-        $uri->host($address);
-        $uri->port($port);
-    }
-
-    my $ep = TradeSpring::Broker::JFO::EndPoint->new({
-        address => $jfo->{endpoint},
-        notify_uri => $uri->as_string });
-
-    $logger->info("JFO endpoint: @{[ $ep->address ]}, notification address: @{[ $ep->notify_uri ]}");
-
-    my $raw_args = {
-        name => $config->{name},
-        endpoint => $ep,
-        params => {
-            type => 'Futures',
-            exchange => $exchange,
-            code => $symbol,
-            year => $contract->expiry_year, month => $contract->expiry_month,
-        }
-    };
-
-    $logger->info("[$config->{name}] ". $contract->code." as $exchange $symbol");
-
-    my $traits = ['Position'];
-    push @$traits, ('Stop', 'Timed', 'Update', 'Attached', 'OCA')
-        unless $config->{wrapped};
-
-    my $broker = TradeSpring::Broker::JFO->new_with_traits
-        ( %$raw_args,
-          traits => $traits,
-          $deployment->{daytrade} ? (position_effect_open => '') : (),
-      );
-    return ($broker,
-            sub {
-                my ($file, $ready_cv) = @_;
-                use Plack::Builder;
-                my $app = builder {
-                    TradeSpring::Broker::JFO->mount_instances({ ready_cv => $ready_cv,
-                                                                check => 90 });
-                    mount '/' => sub {
-                        return [404, ['Conetent-Type', 'text/plain'], ['not found']];
-                    };
-                };
-                local @ARGV = split(/\s+/, $config->{opts});
-                TradeSpring::Broker::JFO->app_loader($app, $file, $config->{port} || 5019);
-            });
-}
-
-my %tws;
-sub load_ib_broker {
-    my ($contract, $config) = @_;
-    require TradeSpring::Broker::IB;
-
-    my $ib = TradeSpring->config->get_children( "ib.$config->{name}" )
-        or die "IB config $config->{name} not found";
-
-    my $tws = $tws{$config->{name}} ||= AE::TWS->new(host => $ib->{host}, port => $ib->{port},
-                                                     client_id => $config->{client_id}+9);
-    my $symbol = $config->{symbol} || $contract->attr('ib.symbol') || $contract->futures->code;
-    my $exchange = $contract->exchange->attr('ib.exchange') or die;
-
-    TradeSpring::Broker::IB->new(
-        tws => $tws,
-        exchange => $exchange,
-        symbol => $symbol,
-        expiry => $contract->expiry,
-        tz => $contract->time_zone,
-        divisor => 1 / $contract->tick_size,
-    );
 }
 
 1;
