@@ -3,6 +3,8 @@ package main;
 use strict;
 use Getopt::Long qw(:config pass_through);
 use TradeSpring;
+use TradeSpring::Util qw(local_broker);
+
 $ENV{GTINDICATOR_CACHE} = 1 unless exists $ENV{GTINDICATOR_CACHE};
 
 use Finance::GeniusTrader::CLI;
@@ -21,9 +23,7 @@ $strategy->require or die $@;
 my ($calc, $first, $last) = $init->($code);
 TradeSpring::init_logging($logconf || 'log.conf');
 
-my $lb = TradeSpring::local_broker();
-
-my $daytrade = TradeSpring::load_strategy($strategy, $calc, $lb, undef, 1,
+my $daytrade = TradeSpring::load_strategy($strategy, $calc, local_broker(), undef, 1,
                                           [$first, $last], 1);
 
 if (@ARGV) {
