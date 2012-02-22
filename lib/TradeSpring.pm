@@ -11,6 +11,7 @@ use Finance::GeniusTrader::Tools qw(:conf :timeframe);
 use Finance::GeniusTrader::DateTime;
 use YAML::Syck;
 use TradeSpring::Config;
+use TradeSpring::Util qw(init_quote);
 
 use Log::Log4perl;
 use Log::Log4perl::Level;
