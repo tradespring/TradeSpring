@@ -70,7 +70,7 @@ sub init_quote {
                 $session = $msg;
                 if ($args{loadcnt}) {
                     $pagm->publish({type => 'pagm.history', code => $args{code},
-                                    timeframe => $args{tf}, count => $args{loadcnt} || 300,
+                                    timeframe => $args{tf}, count => $args{loadcnt},
                                     reply => $myself->name });
                 }
                 else {

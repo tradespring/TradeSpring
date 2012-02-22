@@ -464,7 +464,7 @@ sub livespring {
         tf => $tf,
         bus => $pagm->bus,
         pagm => $pagm,
-        loadcnt => $loadcnt,
+        loadcnt => $loadcnt || 300,
         on_load => sub {
             my ($session, $_calc) = @_;
             my $end = $session->{session_end};
