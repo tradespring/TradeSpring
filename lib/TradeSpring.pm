@@ -61,6 +61,7 @@ sub raw_jfo_broker_args {
     my $account = jfo_config->{accounts}{$c->{account}} or die "$c->{account} not found";
     my $uri = URI->new(jfo_config->{notify_uri}."/".$c->{account});
     if ($port) {
+        require Net::Address::IP::Local;
         my $address = Net::Address::IP::Local->connected_to(URI->new($account->{endpoint}{address})->host);
 
         $uri->host($address);
