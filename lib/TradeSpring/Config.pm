@@ -179,6 +179,9 @@ method load_jfo_broker($contract, $config, $deployment) {
     push @$traits, ('Stop', 'Timed', 'Update', 'Attached', 'OCA')
         unless $config->{wrapped};
 
+    push @$traits, split /\|/, $config->{traits}
+        if $config->{traits};
+
     my $broker = TradeSpring::Broker::JFO->new_with_traits
         ( %$raw_args,
           traits => $traits,
