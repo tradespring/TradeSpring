@@ -25,8 +25,8 @@ requires 'Graph';
 requires 'Data::Walk';
 requires 'YAML::Syck';
 requires 'FSA::Rules';
-requires 'Config::GitLike';
-
+requires 'Config::GitLike' => '1.08';
+requires 'Set::IntSpan';
 requires 'Math::Random::MT';
 
 requires 'Statistics::Basic';
