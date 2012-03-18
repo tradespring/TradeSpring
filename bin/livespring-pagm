@@ -8,6 +8,7 @@ use YAML::Syck qw(LoadFile);
 use Getopt::Long qw(:config pass_through);
 use Log::Log4perl;
 use TradeSpring;
+use TradeSpring::Util qw(local_broker);
 
 my $port = 5019;
 my $test_broker;
@@ -70,7 +71,7 @@ $|++;
 
 my $cname = shift;
 
-my $broker = $test_broker ? TradeSpring::local_broker()
+my $broker = $test_broker ? local_broker()
                           : TradeSpring::jfo_broker($cname, $keepaddress ? undef : $port,
                                                     daytrade => $daytrade);
 my $has_jfo = TradeSpring::Broker::JFO->can('jfo_instances') &&

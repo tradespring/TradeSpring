@@ -28,6 +28,8 @@ package main;
 use strict;
 use Getopt::Long qw(:config pass_through);
 use TradeSpring;
+use TradeSpring::Util qw(local_broker);
+
 $ENV{GTINDICATOR_CACHE} = 1 unless exists $ENV{GTINDICATOR_CACHE};
 
 use Finance::GeniusTrader::CLI;
@@ -61,7 +63,7 @@ my $code = shift or die 'code required';
 my ($calc, $first, $last) = $init->($code);
 TradeSpring::init_logging($logconf || 'log.conf');
 
-my $lb = TradeSpring::local_broker();
+my $lb = local_broker();
 
 my $mc = TradeSpring::load_strategy('MC', $calc, $lb);
 

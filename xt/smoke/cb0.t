@@ -9,6 +9,7 @@ use Test::File::Contents;
 use FindBin;
 use File::Temp;
 use TradeSpring;
+use TradeSpring::Util qw(local_broker);
 
 my $file;
 BEGIN {
@@ -38,7 +39,7 @@ my ($calc, $first, $last) =
                     0, '2001-01-01 00:00:00', '2011-01-01 00:00:00');
 
 TradeSpring::init_logging('log.conf');
-my $lb = TradeSpring::local_broker();
+my $lb = local_broker();
 
 my $report = File::Temp->new;
 local @ARGV = qw(--report_header);

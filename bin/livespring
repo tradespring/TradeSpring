@@ -7,7 +7,7 @@ use YAML::Syck qw(LoadFile);
 use Getopt::Long qw(:config pass_through);
 use Log::Log4perl;
 use TradeSpring;
-use TradeSpring::Util qw(broker_args_from_spec init_quote);
+use TradeSpring::Util qw(broker_args_from_spec init_quote local_broker);
 
 my $test_broker;
 my $logconf;
@@ -44,7 +44,7 @@ $|++;
 
 my $instrument = TradeSpring->config->get_instrument($deployment->{code});
 
-my ($broker, $runloop) = $test_broker ? TradeSpring::local_broker()
+my ($broker, $runloop) = $test_broker ? local_broker()
     : TradeSpring->config->load_broker($broker_config, $deployment, $instrument)
     or $logger->error_die("unknown broker class for deployment $name");
 
