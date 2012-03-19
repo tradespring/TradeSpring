@@ -132,7 +132,7 @@ method load_synth_broker($contract, $config, $deployment) {
     require TradeSpring::Broker::Partition;
     (TradeSpring::Broker::Partition->new_with_traits
         ( backends => $backends,
-          traits => ['Position', 'Stop', 'Timed', 'Update', 'Attached', 'OCA'],
+          traits => ['Position', 'Stop', 'Timed', 'Attached', 'OCA'],
       ), @loops);
 }
 
