@@ -82,7 +82,7 @@ init_quote( bus => $bus,
                                                       $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
                                                   });
                              TradeSpring::init_terminal($bus, $session, $calc, $deployment->{timeframe});
-                             my $end = $session->{session_end};
+                             my $end = $session->{session_end} + 10;
                              my $start = $session->{session_start};
                              if ($init_cb) {
                                  if ($start - 450 > AnyEvent->time) {
