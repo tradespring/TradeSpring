@@ -57,7 +57,10 @@ method new_fsa($dir, $price, $qty, $stp_price) {
                   type => 'stp',
                   qty => $qty,
               };
+    $self->new_raw_fsa($order, $stp_price);
+}
 
+method new_raw_fsa($order, $stp_price) {
     $self->new_fsa2(
         { submit => {
             do => sub {
@@ -77,8 +80,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
         pending => {
             do => sub {
                 my $state = shift;
-                my $order = $state->notes('order');#, undef);
-                $state->notes('order', undef);
+                my $order = $state->notes('order');
                 my $dir = $order->{dir};
                 $state->notes('dir', $dir);
                 $state->notes('qty', $order->{qty});
@@ -86,7 +88,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
 
                 my $submit_i = $self->i;
                 my $id = $self->broker->register_order(
-                    $order,
+                    { %$order },
                     on_match => sub {
                         my ($price, $qty) = @_;
                         $self->debug("matched!");
@@ -98,7 +100,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                     on_error => sub {
                     },
                     on_summary => sub {
-                        my $id = $state->notes('order');
+                        my $id = $state->notes('order_id');
                         if ($_[0]) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
@@ -109,7 +111,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                             my $new = $state->machine->try_switch();
                         }
                     });
-                $state->notes(order => $id);
+                $state->notes(order_id => $id);
                 $state->notes(stp_price => $stp_price) if $stp_price;
                 my $default_stp = $state->notes('order_price') * ( 1 - $self->initial_stp * $dir);
                 my $stp = $state->notes('stp_price');
@@ -171,7 +173,7 @@ around order_annotation => sub {
 method initial_stp { 0.005 };
 
 method _submit_exit_order($type, $order, $state) {
-    my $entry_id = $state->notes('order');
+    my $entry_id = $state->notes('order_id');
     $order->{oca_group} = $entry_id;
     $state->notes('exit_id_map', {}) unless $state->notes('exit_id_map');
     my $exit_id_map = $state->notes('exit_id_map');
@@ -215,11 +217,12 @@ method exit_map($state) { return () }
 method load_from_state($state) {
     for my $entry (@$state) {
         my $notes = $entry->{notes};
-        my $fsa = $self->new_fsa($notes->{dir}, $notes->{price},
-                                 $notes->{qty}, $notes->{stp_price});
+        my $fsa = $self->new_raw_fsa($notes->{order});
         %{ $fsa->notes } = %{ $entry->{notes} };
         $fsa->curr_state($entry->{curr_state});
         push @{$self->fsa}, $fsa;
+        $fsa->try_switch();
+
     }
 }
 
@@ -234,8 +237,8 @@ after 'end' => sub {
 
     for my $f (@{ $self->fsa } ) {
         if ($f->at('pending')) {
-            $self->broker->cancel_order( $f->notes('order'), sub {
-                                             $self->debug("order @{[ $f->notes('order') ]} cancelled: ".join(',', @_) );
+            $self->broker->cancel_order( $f->notes('order_id'), sub {
+                                             $self->debug("order @{[ $f->notes('order_id') ]} cancelled: ".join(',', @_) );
                                          });
         }
         elsif ($f->at('entered')) {
