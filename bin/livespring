@@ -4,10 +4,11 @@ use strict;
 use AnyMQ;
 use AnyEvent;
 use YAML::Syck qw(LoadFile);
-use Getopt::Long qw(:config pass_through);
+use Getopt::Long qw(GetOptionsFromArray :config pass_through);
+
 use Log::Log4perl;
 use TradeSpring;
-use TradeSpring::Util qw(broker_args_from_spec init_quote_with_history local_broker);
+use TradeSpring::Util qw(broker_args_from_spec init_quote_simple init_quote_history local_broker);
 
 my $test_broker;
 my $logconf;
@@ -92,10 +93,9 @@ sub invoke_init_cb {
 }
 
 my $localbus = AnyMQ->new;
-my $bar = $localbus->topic('agbar');
 
 sub init_strategy {
-    my ($strategy_name, $session, $calc, $broker, $ps_object, $args) = @_;
+    my ($strategy_name, $session, $calc, $broker, $ps_object, $bar, $args) = @_;
     local @ARGV = (@$args, '--contract_code', $deployment->{code});
 
     local $_;
@@ -127,27 +127,63 @@ sub init_strategy {
     }
 }
 
-init_quote_with_history(
+my %by_tf;
+for my $strategy_spec (@{$deployment->{strategy}}) {
+    my ($strategy_name, @args) = split(/\s+/, $strategy_spec);
+    my %entry = ( timeframe => $deployment->{timeframe},
+                  loadcnt   => $quote->{loadcnt},
+                  name      => $strategy_name,
+                  args      => \@args,
+              );
+    eval {
+        GetOptionsFromArray(\@args,
+                            "timeframe=s" => \$entry{timeframe},
+                            "loadcnt=i"   => \$entry{loadcnt})
+    } or die "incorrect strategy spec '$strategy_spec': $@";
+
+    push @{$by_tf{$entry{timeframe}} ||= []}, \%entry;
+}
+
+sub init_strategy_by_tf {
+    my ($session, $tf, $cb) = @_;
+    my $bar = $localbus->topic("agbar/$tf");
+
+    init_quote_history(
+        $bus->topic({name => 'pagmctrl.'.$quote->{node}}),
+        $session, $tf,
+        code    => $deployment->{code},
+        loadcnt => $quote->{loadcnt},
+        on_load => sub {
+            my $calc = shift;
+            for my $strategy_entry (@{$by_tf{$tf}}) {
+                init_strategy($strategy_entry->{name}, $session, $calc, $broker, $ps_object, $bar, $strategy_entry->{args});
+            }
+            $cb->($calc) if $cb;
+        },
+        on_bar => sub {
+            my $msg = shift;
+            $bar->publish($msg);
+        });
+}
+
+init_quote_simple(
     bus => $bus,
     node => $quote->{node},
-    loadcnt => $quote->{loadcnt},
-    tf => $deployment->{timeframe},
     code => $deployment->{code},
     on_load => sub {
-        my ($session, $calc) = @_;
+        my ($session) = @_;
         init_broker_quote($session);
-        TradeSpring::init_terminal($bus, $session, $calc, $deployment->{timeframe});
         invoke_init_cb($session->{session_start} - 450, $session, $init_cb)
             if $init_cb;
 
-        for my $strategy_spec (@{$deployment->{strategy}}) {
-            my ($strategy_name, @args) = split(/\s+/, $strategy_spec);
-            init_strategy($strategy_name, $session, $calc, $broker, $ps_object, \@args);
+        for my $tf (keys %by_tf) {
+            init_strategy_by_tf($session, $tf,
+                                $deployment->{timeframe} && $deployment->{timeframe} eq $tf
+                                    ? sub {
+                                        my $calc = shift;
+                                        TradeSpring::init_terminal($bus, $session, $calc, $tf);
+                                    } : ());
         }
-    },
-    on_bar => sub {
-        my $msg = shift;
-        $bar->publish($msg);
     }
 );
 $runloop->(__FILE__, $ready_cv) if $runloop;

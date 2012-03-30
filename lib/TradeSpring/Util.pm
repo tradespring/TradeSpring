@@ -9,6 +9,7 @@ our @EXPORT = our @EXPORT_OK =
        broker_args_from_spec
        init_quote
        init_quote_simple
+       init_quote_history
        init_quote_with_history
        local_broker
   );
@@ -94,7 +95,7 @@ sub init_quote_with_history {
             my $session = shift;
             my $tf = $args{tf};
             init_quote_history($pagm, $session, $tf,
-                               %args, on_load => $on_load);
+                               %args, on_load => sub { $on_load->($session, @_) } );
         });
 }
 
@@ -119,7 +120,7 @@ sub init_quote_history {
                 $p->set_timeframe($timeframe);
                 $calc = Finance::GeniusTrader::Calculator->new($p);
                 $client->subscribe($bus->topic($session->{ag_channel}.$tf));
-                $args{on_load}->($session, $calc);
+                $args{on_load}->($calc);
             }
             elsif ($msg->{type} eq 'agbar') {
                 my $prices = $msg->{data};
