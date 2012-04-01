@@ -113,7 +113,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                     });
                 $state->notes(order_id => $id);
                 $state->notes(stp_price => $stp_price) if $stp_price;
-                my $default_stp = $state->notes('order_price') * ( 1 - $self->initial_stp * $dir);
+                my $default_stp = $self->initial_stp_price($dir, $state->notes('order_price'));
                 my $stp = $state->notes('stp_price');
                 $state->notes(stp_price => $default_stp)
                     if !$stp || $default_stp * $dir > $stp * $dir;
