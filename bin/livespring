@@ -4,10 +4,11 @@ use strict;
 use AnyMQ;
 use AnyEvent;
 use YAML::Syck qw(LoadFile);
-use Getopt::Long qw(:config pass_through);
+use Getopt::Long qw(GetOptionsFromArray :config pass_through);
+
 use Log::Log4perl;
 use TradeSpring;
-use TradeSpring::Util qw(broker_args_from_spec init_quote local_broker);
+use TradeSpring::Util qw(broker_args_from_spec init_quote_simple init_quote_history local_broker);
 
 my $test_broker;
 my $logconf;
@@ -66,76 +67,125 @@ if ($ps) {
     $logger->info( $ps_object->info );
 }
 
-my $localbus = AnyMQ->new;
-my $bar = $localbus->topic('agbar');
-init_quote( bus => $bus,
-            node => $quote->{node},
-            loadcnt => $quote->{loadcnt},
-            tf => $deployment->{timeframe},
-            code => $deployment->{code},
-            on_load => sub {
-                             my ($session, $calc) = @_;
-                             my $broker_client = $bus->new_listener($bus->topic($session->{tick_channel}));
-                             $broker_client->on_error(sub { $logger->fatal(join(',',@_)) } );
-                             $broker_client->poll(sub {
-                                                      my $msg = shift;
-                                                      $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
-                                                  });
-                             TradeSpring::init_terminal($bus, $session, $calc, $deployment->{timeframe});
-                             my $end = $session->{session_end} + 10;
-                             my $start = $session->{session_start};
-                             if ($init_cb) {
-                                 if ($start - 450 > AnyEvent->time) {
-                                     my $w; $w = AnyEvent->timer(
-                                         after => $start - 450 - AnyEvent->time,
-                                         cb => sub {
-                                             $init_cb->($session);
-                                             undef $w;
-                                         });
-                                 }
-                                 else {
-                                     $init_cb->($session);
-                                 }
-                             }
-                             for my $strategy_spec (@{$deployment->{strategy}}) {
-                                 my ($strategy_name, @args) = split(/\s+/, $strategy_spec);
-                                 local @ARGV = (@args, '--contract_code', $deployment->{code});
-
-                                 local $_;
-                                 my $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
-                                 if ($ps_object) {
-                                     $strategy->ps($ps_object);
-                                     $strategy->ps_store($ps_store);
-                                     $strategy->cost($ps->{cost})
-                                         if $ps->{cost};
-                                 }
-                                 my $client = $localbus->new_listener($bar);
-                                 $client->on_error(sub {
-                                                       $logger->fatal(join(',',@_));
-                                                   });
-                                 $client->poll(sub {
-                                                   $strategy->i($calc->prices->count-1);
-                                                   $strategy->run();
-                                               });
-
-                                 TradeSpring::pre_run_strategy($session, $strategy) if $deployment->{daytrade};
-                                 if ($end > AnyEvent->time) {
-                                     my $w; $w = AnyEvent->timer(
-                                         after => $end - AnyEvent->time,
-                                         cb => sub {
-                                             $strategy->end;
-                                             undef $w;
-                                         });
-                                 }
-
-
-                             }
-                         },
-            on_bar => sub {
+sub init_broker_quote {
+    my $session = shift;
+    my $broker_client = $bus->new_listener($bus->topic($session->{tick_channel}));
+    $broker_client->on_error(sub { $logger->fatal(join(',',@_)) } );
+    $broker_client->poll(sub {
                              my $msg = shift;
-                             $bar->publish($msg);
-                         }
-        );
+                             $broker->on_price($msg->{price}, $msg->{volume}, { timestamp => $msg->{timestamp} } );
+                         });
+}
+
+sub invoke_init_cb {
+    my ($when, $session, $init_cb) = @_;
+    if ($when > AnyEvent->time) {
+        my $w; $w = AnyEvent->timer(
+            after => $when - AnyEvent->time,
+            cb => sub {
+                $init_cb->($session);
+                undef $w;
+            });
+    }
+    else {
+        $init_cb->($session);
+    }
+}
+
+my $localbus = AnyMQ->new;
+
+sub init_strategy {
+    my ($strategy_name, $session, $calc, $broker, $ps_object, $bar, $args) = @_;
+    local @ARGV = (@$args, '--contract_code', $deployment->{code});
+
+    local $_;
+    my $strategy = TradeSpring::load_strategy($strategy_name, $calc, $broker);
+    if ($ps_object) {
+        $strategy->ps($ps_object);
+        $strategy->ps_store($ps_store);
+        $strategy->cost($ps->{cost})
+            if $ps->{cost};
+    }
+    my $client = $localbus->new_listener($bar);
+    $client->on_error(sub {
+                          $logger->fatal(join(',',@_));
+                      });
+    $client->poll(sub {
+                      $strategy->i($calc->prices->count-1);
+                      $strategy->run();
+                  });
+
+    TradeSpring::pre_run_strategy($session, $strategy) if $deployment->{daytrade};
+    my $end = $session->{session_end} + 10;
+    if ($end > AnyEvent->time) {
+        my $w; $w = AnyEvent->timer(
+            after => $end - AnyEvent->time,
+            cb => sub {
+                $strategy->end;
+                undef $w;
+            });
+    }
+}
+
+my %by_tf;
+for my $strategy_spec (@{$deployment->{strategy}}) {
+    my ($strategy_name, @args) = split(/\s+/, $strategy_spec);
+    my %entry = ( timeframe => $deployment->{timeframe},
+                  loadcnt   => $quote->{loadcnt},
+                  name      => $strategy_name,
+                  args      => \@args,
+              );
+    eval {
+        GetOptionsFromArray(\@args,
+                            "timeframe=s" => \$entry{timeframe},
+                            "loadcnt=i"   => \$entry{loadcnt})
+    } or die "incorrect strategy spec '$strategy_spec': $@";
+
+    push @{$by_tf{$entry{timeframe}} ||= []}, \%entry;
+}
+
+sub init_strategy_by_tf {
+    my ($session, $tf, $cb) = @_;
+    my $bar = $localbus->topic("agbar/$tf");
+
+    init_quote_history(
+        $bus->topic({name => 'pagmctrl.'.$quote->{node}}),
+        $session, $tf,
+        code    => $deployment->{code},
+        loadcnt => $quote->{loadcnt},
+        on_load => sub {
+            my $calc = shift;
+            for my $strategy_entry (@{$by_tf{$tf}}) {
+                init_strategy($strategy_entry->{name}, $session, $calc, $broker, $ps_object, $bar, $strategy_entry->{args});
+            }
+            $cb->($calc) if $cb;
+        },
+        on_bar => sub {
+            my $msg = shift;
+            $bar->publish($msg);
+        });
+}
+
+init_quote_simple(
+    bus => $bus,
+    node => $quote->{node},
+    code => $deployment->{code},
+    on_load => sub {
+        my ($session) = @_;
+        init_broker_quote($session);
+        invoke_init_cb($session->{session_start} - 450, $session, $init_cb)
+            if $init_cb;
+
+        for my $tf (keys %by_tf) {
+            init_strategy_by_tf($session, $tf,
+                                $deployment->{timeframe} && $deployment->{timeframe} eq $tf
+                                    ? sub {
+                                        my $calc = shift;
+                                        TradeSpring::init_terminal($bus, $session, $calc, $tf);
+                                    } : ());
+        }
+    }
+);
 $runloop->(__FILE__, $ready_cv) if $runloop;
 
 exit $quit->recv;
