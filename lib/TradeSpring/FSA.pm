@@ -104,7 +104,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                         if ($_[0]) {
                             my $o = $self->broker->get_order($id);
                             $state->result($_[0]);
-                            $self->format_order($o->{order}, $state->notes('order_price'), $_[0]);
+                            $self->format_order($o->{order}, $o->{order}{price}, $_[0], $state->notes('order_price'));
                             $self->log('TradeSpring.Position')->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                             $state->notes(submit_i => $submit_i);
                             $state->notes(entry_price =>$o->{order}{price});
@@ -113,7 +113,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                     });
                 $state->notes(order_id => $id);
                 $state->notes(stp_price => $stp_price) if $stp_price;
-                my $default_stp = $state->notes('order_price') * ( 1 - $self->initial_stp * $dir);
+                my $default_stp = $self->initial_stp_price($dir, $state->notes('order_price'));
                 my $stp = $state->notes('stp_price');
                 $state->notes(stp_price => $default_stp)
                     if !$stp || $default_stp * $dir > $stp * $dir;
@@ -199,7 +199,7 @@ method _submit_exit_order($type, $order, $state) {
         on_summary => sub {
             my $o = $self->broker->get_order($id);
             if ($_[0]) {
-                $self->format_order($o->{order}, $order->{price} || $self->broker->{last_price}, $_[0]);
+                $self->format_order($o->{order}, $o->{order}{price}, $_[0]);
                 $self->log('TradeSpring.Position')->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                 $self->fill_position($o->{order}{dir}, $o->{order}{price}, $_[0], $self->i, exit_type => $type, $self->exit_map($state));
                 $state->machine->curr_state->result($_[0]);

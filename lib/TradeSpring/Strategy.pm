@@ -4,6 +4,7 @@ use DateTime;
 use Method::Signatures::Simple;
 use MooseX::ClassAttribute;
 use TradeSpring::Position;
+use POSIX qw(ceil floor);
 
 use List::Util qw(sum);
 
@@ -34,6 +35,7 @@ has ps => (is => "rw");
 
 has cost => (is => "rw", isa => 'Num', default => sub { 0 });
 
+has initial_stp => (is => "rw", isa => "Num", default => sub { 0.01 });
 
 method BUILD {
     if (my $class = $self->ps_class) {
@@ -53,6 +55,14 @@ method BUILD {
 }
 
 method load($prev, $first, $last) {
+}
+
+method dir_round($dir, $price) {
+    $dir > 0 ? ceil($price) : floor($price);
+}
+
+method initial_stp_price($dir, $price) {
+    $self->dir_round(-$dir, $price * ( 1 - $self->initial_stp * $dir));
 }
 
 method get_position_qty($r) {
