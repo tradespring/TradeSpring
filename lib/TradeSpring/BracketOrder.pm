@@ -45,15 +45,14 @@ method new_bracket_order ($entry_order, $stp, $tp, %args) {
     my $p = TradeSpring::Position->new(
         broker => $self->broker, %args,
         on_entry => sub {
-            my ($pos, $price, $qty) = @_;
-            $self->format_order($entry_order, $price, $qty);
+            my ($pos, $price, $qty, $o) = @_;
+            $self->format_order($o->{order}, $price, $qty);
             $self->fill_position($pos->direction, $price, $qty, $submit_i,
                                  $entry_annotation->());
             $on_entry->(@_) if $on_entry;
         },
         on_exit => sub {
-            my ($pos, $type, $price, $qty) = @_;
-            my $o = $self->broker->get_order( $pos->exit_id_map->{$type} );
+            my ($pos, $type, $price, $qty, $o) = @_;
             $self->format_order($o->{order}, $price, $qty);
             $self->fill_position($pos->direction*-1, $price, $qty, $self->i, exit_type => $type);
             $on_exit->(@_) if $on_exit;

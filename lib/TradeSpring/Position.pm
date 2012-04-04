@@ -53,7 +53,7 @@ method _submit_exit_order($type, $order) {
             my $o = $self->broker->get_order($id);
             $self->status('exited');
             if ($_[0]) {
-                $self->on_exit->($self, $type, $o->{order}{price}, $_[0]);
+                $self->on_exit->($self, $type, $o->{order}{price}, $_[0], $o);
                 $self->log->info("position exited: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
             }
         });
@@ -105,7 +105,7 @@ method create ($entry, $stp, $tp) {
                  if ($_[0]) {
                      my $o = $self->broker->get_order($self->entry_id);
                      $self->status('entered');
-                     $self->on_entry->($self, $o->{order}{price}, $_[0]);
+                     $self->on_entry->($self, $o->{order}{price}, $_[0], $o);
                      $self->log->info("position entered: ($o->{order}{dir}) $o->{order}{price} x $_[0] @ $o->{last_fill_time}");
                  }
              }));
