@@ -37,8 +37,8 @@ method run {
         for my $f (@$fsa) {
             $self->debug('fsa at '.$f->curr_state->name);
             if ($f->at('pending')) {
-                $self->broker->cancel_order( $f->notes('order'), sub {
-                                                 $self->debug("order @{[ $f->notes('order') ]} cancelled: ".join(',', @_) );
+                $self->broker->cancel_order( $f->notes('order_id'), sub {
+                                                 $self->debug("order @{[ $f->notes('order_id') ]} cancelled: ".join(',', @_) );
                                  });
 
             }
