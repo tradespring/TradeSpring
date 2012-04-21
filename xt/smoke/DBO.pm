@@ -65,8 +65,9 @@ method run {
 
 method initial_stp { 0.02 }
 
-method mk_order($dir) {
+method mk_order($dir, $type) {
     local $self->{direction} = $dir;
+    $type ||= 'stp';
 
     my $evl =  22;
     my $bb = $self->ne_bb;
@@ -75,7 +76,11 @@ method mk_order($dir) {
     my $stp_price = $bb->current_value * ( 1 - $self->initial_stp * $dir);
     my $qty = 1;
 
-    my $fsa = $self->new_fsa($dir, $bb->current_value, $qty, $stp_price);
+    my $order = { dir => $dir,
+		  price => $bb->current_value,
+		  type => $type,
+		  qty => $qty };
+    my $fsa = $self->new_raw_fsa($order, $stp_price);
     $fsa->start;
     push @{$self->fsa}, $fsa;
 }
