@@ -9,6 +9,9 @@ use Finance::GeniusTrader::Calculator;
 use Finance::GeniusTrader::Eval;
 use Finance::GeniusTrader::Tools qw(:conf :timeframe);
 
+use Log::Log4perl;
+use Log::Log4perl::Level;
+
 use FindBin;
 use File::Temp;
 
@@ -50,7 +53,8 @@ EOF
     $ENV{GTINDICATOR_CACHE} = 1 unless exists $ENV{GTINDICATOR_CACHE};
     $ENV{TRADESPRING_NO_GT} = 1;
 
-    TradeSpring::init_logging('log.conf');
+    Log::Log4perl->easy_init($FATAL);
+    TradeSpring::init_logging;
 
     $class->export_to_level(1, @args);
 }

@@ -335,7 +335,7 @@ sub sim_prices {
     @p = ($strategy->open, @p);
     my %seen = map { $_ => 1 } @p;
     while (my $tick = shift @p) {
-        my $bts = $lb->{timestamp};
+        my $bts = $lb->{timestamp} || 0;
         $lb->on_price($tick, undef, { timestamp => $ts - $nsecs});
         for my $o (grep { $_->{order}{type} eq 'stp' || $_->{order}{type} eq 'lmt' }
                        values %{$lb->orders} ) {

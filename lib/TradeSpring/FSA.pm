@@ -91,11 +91,10 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                     { %$order },
                     on_match => sub {
                         my ($price, $qty) = @_;
-                        $self->debug("matched!");
                         $state->machine->{position_entered} += $qty;
                     },
                     on_ready => sub {
-                        $self->debug("order submitted: ($dir): $order->{price}");
+                        $self->log->info("order submitted: ($dir): $order->{price}");
                     },
                     on_error => sub {
                     },
@@ -238,12 +237,12 @@ after 'end' => sub {
     for my $f (@{ $self->fsa } ) {
         if ($f->at('pending')) {
             $self->broker->cancel_order( $f->notes('order_id'), sub {
-                                             $self->debug("order @{[ $f->notes('order_id') ]} cancelled: ".join(',', @_) );
+                                             $self->log->info("order @{[ $f->notes('order_id') ]} cancelled: ".join(',', @_) );
                                          });
         }
         elsif ($f->at('entered')) {
             $self->broker->cancel_order( $f->notes('exit_id_map')->{stp}, sub {
-                                             $self->debug("order @{[ $f->notes('exit_id_map')->{stp} ]} cancelled: ".join(',', @_) );
+                                             $self->log->info("order @{[ $f->notes('exit_id_map')->{stp} ]} cancelled: ".join(',', @_) );
                                          });
         }
     }
