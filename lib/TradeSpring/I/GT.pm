@@ -1,6 +1,6 @@
 package TradeSpring::I::GT;
-our $VERSION = 1;
 use Moose;
+our $VERSION = 1;
 extends 'TradeSpring::I';
 use Number::Extreme;
 use Finance::GeniusTrader::Eval;

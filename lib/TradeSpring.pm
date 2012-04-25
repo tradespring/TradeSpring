@@ -156,7 +156,7 @@ sub load_ps {
 sub load_strategy {
     my ($name, $calc, $broker, $fh, $load_day_from_db, $range, $use_cache) = @_;
     $fh ||= \*STDOUT;
-    try { eval $name->meta }
+    try { $name->meta }
     catch {
         $name->require or die $@;
     };
