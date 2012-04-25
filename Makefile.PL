@@ -34,5 +34,6 @@ requires 'Statistics::Basic';
 requires 'Finance::Instrument';
 
 test_requires 'Test::Log::Log4perl';
+test_requires 'Test::Deep';
 
 WriteAll;

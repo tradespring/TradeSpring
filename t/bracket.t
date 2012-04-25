@@ -11,6 +11,7 @@ package main;
 use strict;
 use Test::More;
 use Test::Log::Log4perl;
+use Test::Deep;
 
 # test bracket order position
 use TradeSpring::Broker::Local;
@@ -54,27 +55,26 @@ my $ts = {timestamp => 1292210399 } ; #'2010-12-13 11:20:00';
     is $t->position->status, 'submitted';
 
     $broker->on_price(7000, 1, $ts);
-    is_deeply($log, []);
+    cmp_deeply($log, []);
     is $t->pending_order, 2;
     is $t->position_entered, 1;
 
     $broker->on_price(7000, 1, $ts);
     is $t->pending_order, 1;
     is $t->position_entered, 2;
-    is_deeply($log, []);
+    cmp_deeply($log, []);
 
     $broker->on_price(7000, 1, $ts);
     is $t->pending_order, 0;
     is $t->position_entered, 3;
-    is_deeply($log, [['entry', 7000, 3]]);
-
+    cmp_deeply($log, [['entry', 7000, 3, ignore()]]);
     @$log = ();
     $broker->on_price(6991);
-    is_deeply($log, []);
+    cmp_deeply($log, []);
     is $t->position_entered, 3;
 
     $broker->on_price(6990);
-    is_deeply($log, [['exit', 'stp', 6990, 3]]);
+    cmp_deeply($log, [['exit', 'stp', 6990, 3, ignore()]]);
     is $t->position_entered, 0;
     is $t->pending_order, 0;
 
@@ -111,21 +111,21 @@ my $ts = {timestamp => 1292210399 } ; #'2010-12-13 11:20:00';
     is $t->position->status, 'submitted';
 
     $broker->on_price(7000, 1, $ts);
-    is_deeply($log, []);
+    cmp_deeply($log, []);
     is $t->pending_order, 2;
     is $t->position_entered, 1;
 
     $t->cancel_pending_order;
 
-    is_deeply($log, [['entry', 7000, 1]]);
+    cmp_deeply($log, [['entry', 7000, 1, ignore()]]);
 
     @$log = ();
     $broker->on_price(6991);
-    is_deeply($log, []);
+    cmp_deeply($log, []);
     is $t->position_entered, 1;
 
     $broker->on_price(6990, 10, $ts);
-    is_deeply($log, [['exit', 'stp', 6990, 1]]);
+    cmp_deeply($log, [['exit', 'stp', 6990, 1, ignore()]]);
     is $t->position_entered, 0;
     is $t->pending_order, 0;
 
