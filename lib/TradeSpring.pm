@@ -19,16 +19,18 @@ our $logger;
 sub init_logging {
     my $logconf = shift;
     my $watch = shift;
-    if (-e $logconf) {
-        if ($watch) {
-            Log::Log4perl::init_and_watch($logconf, 60);
+    unless ( Log::Log4perl->initialized() ) {
+        if (-e $logconf) {
+            if ($watch) {
+                Log::Log4perl::init_and_watch($logconf, 60);
+            }
+            else {
+                Log::Log4perl::init($logconf);
+            }
         }
         else {
-            Log::Log4perl::init($logconf);
+            Log::Log4perl->easy_init($INFO);
         }
-    }
-    else {
-        Log::Log4perl->easy_init($INFO);
     }
     $logger = Log::Log4perl->get_logger("tradespring");
 }
