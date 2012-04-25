@@ -15,9 +15,6 @@ use File::Temp;
 use TradeSpring;
 use TradeSpring::Util qw(local_broker);
 
-$ENV{GTINDICATOR_CACHE} = 1 unless exists $ENV{GTINDICATOR_CACHE};
-
-
 use base 'Exporter';
 
 our @EXPORT = our @EXPORT_OK =
@@ -30,6 +27,10 @@ sub import {
 
     my $file;
     my $extra_config = '';
+    if (@args && $args[0] eq ':extra_config') {
+        shift @args;
+        $extra_config = shift @args;
+    }
     unshift @INC, $FindBin::Bin;
     my $dir = File::Spec->catdir($FindBin::Bin,
                                  'gt');
@@ -51,8 +52,7 @@ EOF
 
     TradeSpring::init_logging('log.conf');
 
-    $class->export_to_level(1, @_);
-
+    $class->export_to_level(1, @args);
 }
 
 
@@ -66,7 +66,7 @@ sub get_report_from_strategy {
     my $lb = local_broker();
     my $report = File::Temp->new;
     local @ARGV = qw(--report_header);
-    my $strategy = TradeSpring::load_strategy('DBO', $calc, $lb, $report);
+    my $strategy = TradeSpring::load_strategy($args{strategy}, $calc, $lb, $report);
 
     for my $i ($first..$last) {
         TradeSpring::run_trade($strategy, $i, 1);
