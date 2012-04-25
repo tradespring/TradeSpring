@@ -7,7 +7,7 @@ use TradeSpring::Test
 my $report = get_report_from_strategy(
     code => 'TX', tf => '5min',
     start => '2001-01-01 00:00:00',
-    end => '2011-01-01 00:00:00',
+    end => '2003-01-01 00:00:00',
     strategy => 'CB0',
 );
 
