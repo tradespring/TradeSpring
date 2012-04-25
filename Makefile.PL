@@ -6,6 +6,8 @@ build_requires 'Test::More';
 auto_include_deps;
 extra_tests;
 
+tests 't/*.t t/*/*.t';
+
 requires 'Term::ANSIScreen';
 requires 'MooseX::Log::Log4perl';
 requires 'Log::Log4perl';
