@@ -30,15 +30,13 @@ method manage_position {
 }
 
 method run {
-    $self->debug('run');
     my $fsa = $self->fsa;
     if (@$fsa) {
         my @remaining;
         for my $f (@$fsa) {
-            $self->debug('fsa at '.$f->curr_state->name);
             if ($f->at('pending')) {
                 $self->broker->cancel_order( $f->notes('order_id'), sub {
-                                                 $self->debug("order @{[ $f->notes('order_id') ]} cancelled: ".join(',', @_) );
+                                                 $self->log->info("order @{[ $f->notes('order_id') ]} cancelled: ".join(',', @_) );
                                  });
 
             }
@@ -52,12 +50,10 @@ method run {
         $self->fsa($fsa);
 
     }
-    $self->debug('make orders? ');
     if (@$fsa) {
         return;
     }
 
-    $self->debug('make orders ');
     for my $dir (-1,1) {
         $self->mk_order($dir);
     }
