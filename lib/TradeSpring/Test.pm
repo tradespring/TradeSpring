@@ -13,6 +13,7 @@ use Log::Log4perl;
 use Log::Log4perl::Level;
 
 use FindBin;
+use Path::Class;
 use File::Temp;
 
 use TradeSpring;
@@ -21,7 +22,8 @@ use TradeSpring::Util qw(local_broker);
 use base 'Exporter';
 
 our @EXPORT = our @EXPORT_OK =
-    qw(get_report_from_strategy
+    qw(find_calc
+       get_report_from_strategy
        is_report_identical
   );
 
@@ -35,8 +37,8 @@ sub import {
         $extra_config = shift @args;
     }
     unshift @INC, $FindBin::Bin;
-    my $dir = File::Spec->catdir($FindBin::Bin,
-                                 'gt');
+    my $dir = Path::Class::File->new($INC{'TradeSpring.pm'})
+        ->dir->parent->subdir('xt/smoke/gt');
     $file = File::Temp->new;
     my $db_path = $dir;
     print $file <<"EOF";
@@ -59,14 +61,18 @@ EOF
     $class->export_to_level(1, @args);
 }
 
+sub find_calc {
+    my (%args) = @_;
+    my $db = create_db_object();
+    return find_calculator($db, $args{code},
+                           Finance::GeniusTrader::DateTime::name_to_timeframe($args{tf}),
+                           0, @args{'start', 'end'});
+}
 
 sub get_report_from_strategy {
     my (%args) = @_;
     my $db = create_db_object();
-    my ($calc, $first, $last) =
-        find_calculator($db, $args{code},
-                        Finance::GeniusTrader::DateTime::name_to_timeframe($args{tf}),
-                        0, @args{'start', 'end'});
+    my ($calc, $first, $last) = find_calc(%args);
     my $lb = local_broker();
     my $report = File::Temp->new;
     local @ARGV = qw(--report_header);

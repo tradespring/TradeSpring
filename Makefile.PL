@@ -30,7 +30,7 @@ requires 'FSA::Rules';
 requires 'Config::GitLike' => '1.08';
 requires 'Set::IntSpan';
 requires 'Math::Random::MT';
-
+requires 'Path::Class';
 requires 'Statistics::Basic';
 
 requires 'Finance::Instrument';

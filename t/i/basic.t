@@ -2,38 +2,13 @@ use strict;
 use Test::More;
 use ok 'TradeSpring::I::SMA';
 use Test::Exception;
-
-use Finance::GeniusTrader::Conf;
-use Finance::GeniusTrader::Calculator;
-use Finance::GeniusTrader::Eval;
-use Finance::GeniusTrader::Tools qw(:conf :timeframe);
-use FindBin;
-use File::Temp;
-
-my $file;
-BEGIN {
-    unshift @INC, $FindBin::Bin;
-    my $dir = File::Spec->catdir($FindBin::Bin, '..', '..', 'xt', 'smoke',
-                                 'gt');
-    $file = File::Temp->new;
-    my $db_path = $dir;
-    print $file <<"EOF";
-DB::module Text
-DB::text::file_extension _\$timeframe.txt
-DB::text::cache 1
-DB::text::directory $db_path
-
-EOF
-    close $file;
-    Finance::GeniusTrader::Conf::load($file->filename);
-}
-
-my $db = create_db_object();
-my ($calc, $first, $last) =
-    find_calculator($db, 'TX', Finance::GeniusTrader::DateTime::name_to_timeframe('5min'),
-                    0, '2001-01-01 00:00:00', '2011-01-01 00:00:00');
-
+use TradeSpring::Test;
 use TradeSpring::Frame;
+
+my ($calc, $first, $last) = find_calc( code => 'TX',
+                                       tf => '5min',
+                                       start => '2001-01-01 00:00:00',
+                                       end => '2011-01-01 00:00:00');
 
 my $f = TradeSpring::Frame->new( calc => $calc, i => 0 );
 
