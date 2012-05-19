@@ -25,7 +25,7 @@ requires 'UNIVERSAL::require';
 requires 'Graph';
 requires 'Data::Walk';
 requires 'YAML::Syck';
-requires 'FSA::Rules';
+requires 'FSA::Rules'      => '0.32';
 requires 'Config::GitLike' => '1.08';
 requires 'Set::IntSpan';
 requires 'Math::Random::MT';
