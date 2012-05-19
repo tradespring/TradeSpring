@@ -14,7 +14,7 @@ my $logconf;
 my $fitf;
 my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices,
                                             'fitf' => \$fitf,
-                                            "logconf" => \$logconf);
+                                            "logconf=s" => \$logconf);
 
 my $code = shift or die 'code required';
 my $strategy = shift;
