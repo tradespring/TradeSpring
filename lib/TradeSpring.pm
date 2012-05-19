@@ -156,10 +156,7 @@ sub load_ps {
 sub load_strategy {
     my ($name, $calc, $broker, $fh, $load_day_from_db, $range, $use_cache) = @_;
     $fh ||= \*STDOUT;
-    try { $name->meta }
-    catch {
-        $name->require or die $@;
-    };
+    Class::Load::load_class($name);
     $name->init;
 
     my @args = (broker => $broker, use_cache => $use_cache,

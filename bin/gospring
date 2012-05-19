@@ -18,7 +18,6 @@ my $init = Finance::GeniusTrader::CLI::init('simprices' => \$simprices,
 
 my $code = shift or die 'code required';
 my $strategy = shift;
-$strategy->require or die $@;
 
 my ($calc, $first, $last) = $init->($code);
 TradeSpring::init_logging($logconf || 'log.conf');
