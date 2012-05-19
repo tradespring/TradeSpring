@@ -6,24 +6,15 @@ use MooseX::ClassAttribute;
 use TradeSpring::Position;
 use POSIX qw(ceil floor);
 
-use List::Util qw(sum);
-
 with 'MooseX::Log::Log4perl';
+with 'TradeSpring::PositionReport';
 
 class_has attrs => (is => "rw", isa => "HashRef", default => sub { {} });
 
-has open_positions => (is => "rw", isa => "ArrayRef", default => sub { [] });
 has broker => (is => "rw");
 has position => (is => "rw", isa => "TradeSpring::Position", clearer => 'clear_position');
 
-has _last_ym => (is => "rw", isa => "Str");
-has _ym_cnt => (is => "rw", isa => "Int", default => sub { 0 });
-
 has pending_positions => (is => "rw", isa => "HashRef", default => sub { {} });
-
-has report_header => (is => "ro", isa => "Bool");
-
-has report_fh => (is => "rw", default => sub { \*STDOUT });
 
 has position_qty => (is => "ro", isa => "Int", default => sub { 1 });
 
@@ -65,6 +56,20 @@ method initial_stp_price($dir, $price) {
     $self->dir_round(-$dir, $price * ( 1 - $self->initial_stp * $dir));
 }
 
+method position_closed($profit, $qty) {
+    if ($self->ps) {
+        my $n = $self->ps->equity + ($profit - $self->cost) * $qty;
+        $self->log->info("Updating equity: $n");
+        $self->ps->equity( $n );
+        $self->ps->store($self->ps_store) if $self->ps_store;
+    }
+}
+
+
+method position_attributes($c) {
+    map { $self->attrs->{$_}->($self, $c) } sort keys %{$self->attrs}
+}
+
 method get_position_qty($r) {
     return $self->position_qty unless $self->ps;
 
@@ -83,50 +88,6 @@ method frame_attrs { return }
 
 method order_annotation { {} }
 method entry_annotation { {} }
-
-method fill_position($dir, $price, $qty, $submit_i, %attrs) {
-    my $pos = $self->open_positions;
-    my $cp = (sum map { $_->{dir} } @$pos) || 0;
-    if ($cp * $dir < 0) { # closing
-        my $c = shift @$pos;
-#        warn "closing $cp $dir ".Dumper($c) ; use Data::Dumper;
-        my $date = $self->date;
-
-        my ($y, $m, $d) = split(/[-\s]/, $date);
-        my $dt = DateTime->new(year => $y, month => $m, day => $d);
-
-        my ($ym) = $date =~ m/(\d{4}-\d{2})/;
-        $ym =~ s/-//;
-        if (!$self->_last_ym || $ym ne $self->_last_ym) {
-            $self->_ym_cnt( 0 );
-            $self->_last_ym($ym);
-        }
-
-        my $profit = ($price - $c->{price}) * $c->{dir};
-
-        $c->{$_} = $attrs{$_} for keys %attrs;
-        syswrite $self->report_fh,
-            join(",", $ym.'-'.sprintf('%03d',++$self->{_ym_cnt}), $dt->ymd, $c->{dir},
-                   $self->date($c->{i}), $date,
-                   $c->{price}, $price, $profit,
-
-                   map { $self->attrs->{$_}->($self, $c) } sort keys %{$self->attrs}
-               ).$/;
-
-        if ($self->ps) {
-            my $n = $self->ps->equity + ($profit - $self->cost) * $qty;
-            $self->log->info("Updating equity: $n");
-            $self->ps->equity( $n );
-            $self->ps->store($self->ps_store) if $self->ps_store;
-        }
-
-    }
-    else {
-        push @$pos, { dir => $dir, price => $price, i => $self->i, qty => $qty,
-                      submit_i => $submit_i, %attrs
-                  };
-    }
-}
 
 method init($pkg:) {
 }
