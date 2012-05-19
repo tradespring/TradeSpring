@@ -1,7 +1,7 @@
 package TradeSpring::Strategy;
 use Moose;
 use DateTime;
-use Method::Signatures::Simple;
+use methods;
 use MooseX::ClassAttribute;
 use TradeSpring::Position;
 use POSIX qw(ceil floor);

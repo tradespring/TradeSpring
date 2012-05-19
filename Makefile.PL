@@ -8,6 +8,7 @@ extra_tests;
 
 tests 't/*.t t/*/*.t';
 
+requires 'methods'                 => '0.10';
 requires 'Term::ANSIScreen';
 requires 'MooseX::Log::Log4perl';
 requires 'Log::Log4perl';
@@ -16,7 +17,6 @@ requires 'MooseX::SimpleConfig';
 requires 'MooseX::Getopt';
 requires 'Test::File::Contents';
 requires 'UNIVERSAL::require';
-requires 'Method::Signatures::Simple';
 requires 'Number::Extreme';
 requires 'MooseX::ClassAttribute';
 requires 'DateTime::Format::Strptime';

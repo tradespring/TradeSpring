@@ -1,6 +1,6 @@
 package TradeSpring::BracketOrder;
 use Moose::Role;
-use Method::Signatures::Simple;
+use methods;
 
 with 'TradeSpring::OrderReport';
 

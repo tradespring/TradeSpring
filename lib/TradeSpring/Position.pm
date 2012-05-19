@@ -1,6 +1,6 @@
 package TradeSpring::Position;
 use Moose;
-use Method::Signatures::Simple;
+use methods;
 with 'MooseX::Log::Log4perl';
 
 has broker => (is => "ro", isa => "TradeSpring::Broker");

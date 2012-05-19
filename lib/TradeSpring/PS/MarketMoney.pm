@@ -1,6 +1,6 @@
 package TradeSpring::PS::MarketMoney;
 use Moose;
-use Method::Signatures::Simple;
+use methods;
 use MooseX::Storage;
 use List::Util qw(min max sum);
 

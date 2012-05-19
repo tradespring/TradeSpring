@@ -1,7 +1,7 @@
 package TradeSpring::DayTrade;
 use 5.10.1;
 use Moose::Role;
-use Method::Signatures::Simple;
+use methods;
 use TradeSpring;
 
 requires 'highest_high';

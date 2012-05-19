@@ -3,7 +3,7 @@ use Moose;
 
 use Finance::GeniusTrader::Prices;
 use Finance::GeniusTrader::DateTime;
-use Method::Signatures::Simple;
+use methods;
 use Number::Extreme;
 
 method debug($message, $i) {

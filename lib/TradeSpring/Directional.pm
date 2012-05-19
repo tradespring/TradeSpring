@@ -1,7 +1,7 @@
 package TradeSpring::Directional;
 use Moose::Role;
 use Finance::GeniusTrader::Prices qw($HIGH $LOW);
-use Method::Signatures::Simple;
+use methods;
 use Number::Extreme;
 use Carp;
 

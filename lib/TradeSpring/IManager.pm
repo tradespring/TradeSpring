@@ -1,7 +1,7 @@
 package TradeSpring::IManager;
 use Moose;
 use UNIVERSAL::require;
-use Method::Signatures::Simple;
+use methods;
 use Graph;
 use Graph::Traversal::DFS;
 

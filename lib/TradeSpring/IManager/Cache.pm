@@ -1,5 +1,5 @@
 package TradeSpring::IManager::Cache;
-use Method::Signatures::Simple;
+use methods;
 use Moose;
 use Set::IntSpan;
 use Redis::hiredis;
