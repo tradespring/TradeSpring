@@ -3,7 +3,6 @@ name 'TradeSpring';
 all_from 'lib/TradeSpring.pm';
 readme_from 'lib/TradeSpring.pm';
 build_requires 'Test::More';
-auto_include_deps;
 extra_tests;
 
 tests 't/*.t t/*/*.t';
