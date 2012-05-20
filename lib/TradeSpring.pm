@@ -562,6 +562,9 @@ sub pre_run_strategy {
     while (($p->at($start-1)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd ) {
         --$start;
     }
+    for my $i (0..$start-1) {
+        $strategy->i($i);
+    }
     if ($start != $calc->prices->count-1) {
         for my $i ($start..$calc->prices->count-1) {
             $strategy->i($i);
