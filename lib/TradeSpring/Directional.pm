@@ -63,8 +63,8 @@ __PACKAGE__->mk_directional_method('ne_worst' => sub { Number::Extreme->min(@_) 
 
 use List::Util qw(max min);
 
-__PACKAGE__->mk_directional_method('lu_best'   => 'max',  'min', 'function');
-__PACKAGE__->mk_directional_method('lu_worst'  => 'min',  'max', 'function');
+__PACKAGE__->mk_directional_method('lu_best'   => \&max,  \&min, 'function');
+__PACKAGE__->mk_directional_method('lu_worst'  => \&min,  \&max, 'function');
 
 __PACKAGE__->mk_directional_method('bt',
                                    sub { $_[0] > $_[1] },
