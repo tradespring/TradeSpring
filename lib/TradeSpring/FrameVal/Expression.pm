@@ -10,8 +10,9 @@ method set {
 }
 
 method get($offset) {
-    my $i = $->i - ($offset || 0);
-    $->cache->{ $i  } ||= do {
+    my $i = $->i - ($offset || 0) - $->cache_start;
+    return undef if $i < 0;
+    $->cache->[ $i ] ||= do {
         local $->frame->{i} = $i;
         $->expression->($-);
     };

@@ -13,7 +13,10 @@ has frame => (is => "rw", isa => "TradeSpring::Frame",
               handles => [qw(i calc date open high highest_high low lowest_low close hour last_hour is_dstart debug)],
 );
 
-has cache => (is => "ro", isa => "HashRef", default => sub { {} });
+has cache => (is => "ro", isa => "ArrayRef", default => sub { [] });
+
+has cache_start => (is => "rw", isa => "Int", default => sub { 0 });
+has cache_length => (is => "rw", isa => "Int", default => sub { 1024 });
 
 has default => (is => "ro", default => sub { undef });
 
@@ -30,14 +33,21 @@ method _build_tied {
 }
 
 method set($val) {
-    $->cache->{$->i} = $val;
+    $->cache->[$->i - $->cache_start] = $val;
+    if ( $#{$->cache} + 1 >= $->cache_length * 2) {
+        my $remove = $#{$->cache} + 1 - $->cache_length;
+        splice(@{$->cache}, 0, $remove);
+        $->cache_start( $->cache_start + $remove );
+    }
 }
 
 method get($offset) {
     my $i = $->i - ($offset || 0);
     return $->default if $i < 0;
-    $->cache->{ $i } = $->do_get unless exists $->cache->{ $i };
-    $->cache->{ $i }
+    $i -= $->cache_start;
+    die "out of bound, consider increase cache_size: $i / ".$->cache_start if $i < 0;
+    $->cache->[ $i ] = $->do_get unless exists $->cache->[ $i ];
+    $->cache->[ $i ]
 }
 
 method do_get {
