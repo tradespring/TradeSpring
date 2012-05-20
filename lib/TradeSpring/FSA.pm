@@ -66,6 +66,7 @@ method new_raw_fsa($order, $stp_price) {
             do => sub {
                 my $state = shift;
                 $state->notes('order', $order);
+                my $new = $state->machine->try_switch();
             },
             rules => [ pending => sub { 1 } ],
         }

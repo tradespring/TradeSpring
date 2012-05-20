@@ -68,8 +68,7 @@ method mk_order($dir, $type) {
     my $evl =  22;
     my $bb = $self->ne_bb;
     $bb->test($_) for ($self->i-$evl+1..$self->i);
-
-    my $stp_price = $bb->current_value * ( 1 - $self->initial_stp * $dir);
+    my $stp_price = $self->initial_stp_price($dir, $bb->current_value);
     my $qty = 1;
 
     my $order = { dir => $dir,
