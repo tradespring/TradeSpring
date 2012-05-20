@@ -14,6 +14,7 @@ requires 'Log::Log4perl';
 requires 'Net::Address::IP::Local';
 requires 'MooseX::SimpleConfig';
 requires 'MooseX::Getopt';
+requires 'MooseX::Alien';
 requires 'Test::File::Contents';
 requires 'UNIVERSAL::require';
 requires 'Number::Extreme';
