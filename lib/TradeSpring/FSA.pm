@@ -136,7 +136,7 @@ method new_fsa2($conditions, $stp_price, $on_enter) {
                 $self->fill_position($state->notes('dir'), $state->notes('entry_price'),
                                      $state->notes('qty'), $state->notes('submit_i'),
                                      %{ $state->notes('order_annotation') || {} },
-                                     %{ $self->entry_annotation($state) });
+                                     %{ $self->entry_annotation($state->notes('dir'), $state) });
 
                 my $stp_price = $state->notes('stp_price');
                 my $qty = $state->notes('qty');
