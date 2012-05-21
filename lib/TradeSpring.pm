@@ -552,6 +552,11 @@ sub load_broker {
     __PACKAGE__->config->load_broker(@_);
 }
 
+sub _price_date_eq {
+    my ($p, $i, $dt) = @_;
+    ($p->at($i)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd
+}
+
 sub pre_run_strategy {
     my ($session, $strategy) = @_;
     # XXX: load existing position?
@@ -559,14 +564,19 @@ sub pre_run_strategy {
     my $p = $calc->prices;
     my $start = $calc->prices->count-1;
     my $dt = DateTime->now(time_zone => $session->{timezone});
-    while (($p->at($start-1)->[$DATE] =~ m/^([\d-]+)/)[0] eq $dt->ymd ) {
+    while (_price_date_eq($p, $start-1, $dt) ) {
         --$start;
     }
-    for my $i (0..$start-1) {
+    if (_price_date_eq($p, $calc->prices->count-1, $dt)) {
+        # started
+        --$start;
+    }
+    for my $i (0..$start) {
         $strategy->i($i);
     }
+    $strategy->debug("now doing rerun");
     if ($start != $calc->prices->count-1) {
-        for my $i ($start..$calc->prices->count-1) {
+        for my $i ($start+1..$calc->prices->count-1) {
             $strategy->i($i);
             $strategy->run();
         }
