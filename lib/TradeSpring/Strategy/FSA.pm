@@ -64,6 +64,18 @@ method run {
     $self->fsa(\@remaining);
 }
 
+before 'on_end_of_day' => method {
+    my $fsa = $->fsa;
+    for my $f (@$fsa) {
+        my $p = $f->{position_entered} or next;;
+        $->debug('close '.$->date($f->notes('confirming')));
+        my $state = $f->curr_state;
+        $state->fill_position($state->direction*-1, $->close, $p, $self->i, exit_type => 'eod');
+        $f->curr_state('closed');
+    }
+};
+
+
 __PACKAGE__->meta->make_immutable;
 no Moose;
 1;
