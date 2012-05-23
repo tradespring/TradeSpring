@@ -82,7 +82,6 @@ method on_pending {
             }
         });
     $->notes(order_id => $id);
-    local $_;
     $->notes(order_annotation => $self->frame->order_annotation($self));
     return;
 }
