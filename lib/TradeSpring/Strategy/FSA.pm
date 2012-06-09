@@ -4,6 +4,8 @@ use methods-invoker;
 
 extends 'TradeSpring::Frame', 'TradeSpring::Strategy';
 
+with 'TradeSpring::OrderReport';
+
 has state_class => (
     is => "ro",
     isa => "Str",
@@ -18,8 +20,8 @@ method new_directional_fsa(%attr) {
     my $state_class = $->state_class;
     my $fsa = $state_class->new_machine( frame => $self,
                                          direction => $dir,
-                                         broker => $self->broker,
-                                         report_fh => $self->report_fh,
+                                         broker => $->broker,
+                                         order_report => $->order_report,
                                   );
     $fsa->notes(fsa_start => $->i);
     $fsa->notes($_ => $attr{$_}) for keys %attr;
