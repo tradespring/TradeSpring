@@ -106,6 +106,9 @@ sub init_strategy {
         $strategy->cost($ps->{cost})
             if $ps->{cost};
     }
+    if (@ARGV) {
+        $logger->error('Unhandled arguments: '.join(',',@ARGV));
+    }
     my $client = $localbus->new_listener($bar);
     $client->on_error(sub {
                           $logger->fatal(join(',',@_));
