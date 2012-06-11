@@ -21,7 +21,9 @@ method new_directional_fsa(%attr) {
     my $fsa = $state_class->new_machine( frame => $self,
                                          direction => $dir,
                                          broker => $->broker,
-                                         order_report => $->order_report,
+                                         $->order_report
+                                             ? (order_report => $->order_report)
+                                             : ()
                                   );
     $fsa->notes(fsa_start => $->i);
     $fsa->notes($_ => $attr{$_}) for keys %attr;
