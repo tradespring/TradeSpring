@@ -71,12 +71,13 @@ sub find_calc {
 
 sub get_report_from_strategy {
     my (%args) = @_;
+    my $args = delete $args{args} || [];
     my $db = create_db_object();
     my ($calc, $first, $last) = find_calc(%args);
     my $lb = local_broker();
     my $report = File::Temp->new;
-    local @ARGV = qw(--report_header);
-    my $strategy = TradeSpring::load_strategy($args{strategy}, $calc, $lb, $report);
+    local @ARGV = (@$args, '--report_header');
+    my $strategy = TradeSpring::load_strategy($args{strategy}, $calc, $lb, $report, undef, [$first, $last]);
 
     for my $i ($first..$last) {
         TradeSpring::run_trade($strategy, $i, 1);
