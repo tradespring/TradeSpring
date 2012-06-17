@@ -56,7 +56,7 @@ around order_annotation => sub {
     my ($next, $self, $state) = @_;
     my $ann = {};
     if (my $stp = $state->notes('stp_price')) {
-        my $dir = $state->notes('dir');
+        my $dir = $state->direction;
         my $p = $state->notes('order_price');
         my $r = ($p - $stp) * $dir;
         $ann = { r => $r };
