@@ -11,6 +11,8 @@ with 'TradeSpring::OrderReport';
 has state_file => (is => "rw", isa => "Str");
 has fsa => (is => "rw", default => sub { [] });
 
+Carp::cluck 'deprecated, please migrate to TradeSpring::Strategy::FSA';
+
 method load($prev, $first, $last) {
     if (my $f = $self->state_file) {
         try {
