@@ -53,8 +53,9 @@ method build_rules($pkg:) {
 
 method on_pending {
     my $order = $->notes('order');
-    my $dir = $order->{dir};
-    $->notes('dir', $dir);
+    my $dir = $->direction;
+    # XXX: dir in notes is compat only
+    $->notes('dir' => $dir);
     $->notes('qty', $order->{qty});
     $->notes('order_price', $order->{price}) if $order->{price};
     my $submit_i = $self->i;
@@ -104,13 +105,14 @@ method on_position_entered {
 }
 
 method on_entered {
-    my $dir = $->notes('dir');
-
+    my $dir = $->direction;
     $->on_position_entered;
-    $self->fill_position($->notes('dir'), $->notes('entry_price'),
-                         $->notes('qty'), $->notes('submit_i'),
+    $self->fill_position($dir,
+                         $->notes('entry_price'),
+                         $->notes('qty'),
+                         $->notes('submit_i'),
                          %{ $->notes('order_annotation') || {} },
-                         %{ $->frame->entry_annotation($->notes('dir')) });
+                         %{ $->frame->entry_annotation($dir) });
 
     my $stp_price = $->notes('stp_price') or return;
     my $qty = $->notes('qty');
